@@ -32,6 +32,8 @@ class UMAP_neural_network(UMAP_tensorflow):
         decoder=None,
         training_epochs=50,
         decoding_method=None,  # "autoencoder", "network", or None
+        valid_X=None,
+        valid_Y=None,
         *args,
         **kwargs
     ):
@@ -50,12 +52,14 @@ class UMAP_neural_network(UMAP_tensorflow):
         self.random_state = check_random_state(None)
 
         self.dims = dims  # if this is an image, we should reshape for network
-
         self.encoder = encoder  # neural network used for embedding
         self.decoder = decoder  # neural network used for decoding
-
         # whether to use a decoder, and what type  ("autoencoder", "network", None)
         self.decoding_method = decoding_method
+        self.valid_X = (
+            valid_X  # validation data used for reconstruction or classification
+        )
+        self.valid_Y = valid_Y  # validation labels used for classification
 
         # make a binary cross entropy object for reconstruction
         if self.decoding_method in ["autoencoder", "network"]:
@@ -72,7 +76,12 @@ class UMAP_neural_network(UMAP_tensorflow):
             )
         else:
             self.tensorboard_logdir = tensorboard_logdir
-        self.summary_writer = tf.summary.create_file_writer(self.tensorboard_logdir)
+        self.summary_writer_train = tf.summary.create_file_writer(
+            self.tensorboard_logdir + "/train"
+        )
+        self.summary_writer_valid = tf.summary.create_file_writer(
+            self.tensorboard_logdir + "/valid"
+        )
 
     def compute_umap_loss(self, batch_to, batch_from):
         """
@@ -116,39 +125,26 @@ class UMAP_neural_network(UMAP_tensorflow):
 
         return ce_loss, embedding_to, embedding_from
 
-    def compute_reconstruction_loss(
-        self, batch_to, batch_from, embedding_to, embedding_from
-    ):
+    def compute_reconstruction_loss(self, X, Z=None):
         """
-        Compute the reconstruction loss between input and output
+        [summary]
 
         Parameters
         ----------
-        batch_to : tf.Tensor
-            data input as batch_to
-        batch_from : tf.Tensor
-            data input as batch_from
-        embedding_to : tf.Tensor
-            embedding projected from batch_to
-        embedding_from : tf.Tensor
-            embedding projected from batch_from
+        X : [type]
+            input data
+        Z : [type], optional
+            embedding of input data, by default None
 
         Returns
         -------
-        reconstruction_loss : tf.Tensor
-            Loss for reconstructing batch_to, batch_from
+        reonstruction_loss
+            binary cross entropy loss for reconstruction
         """
-
-        # reconstruct X
-        recon_to = self.decoder(embedding_to)
-        recon_from = self.decoder(embedding_from)
-
-        # get binary cross entropy loss for reconstruction
-        reconstruction_loss = self.binary_cross_entropy(
-            tf.concat([batch_to, batch_from], axis=0),
-            tf.concat([recon_to, recon_from], axis=0),
-        )
-
+        if Z is None:
+            Z = self.encoder(X)
+        X_r = self.decoder(Z)
+        reconstruction_loss = self.binary_cross_entropy(X, X_r)
         return reconstruction_loss
 
     # @tf.function
@@ -158,18 +154,21 @@ class UMAP_neural_network(UMAP_tensorflow):
                 ce_loss, embedding_to, embedding_from = self.compute_umap_loss(
                     batch_to, batch_from
                 )
-                reconstruction_loss = self.compute_reconstruction_loss(
-                    batch_to, batch_from, embedding_to, embedding_from
+                reconstruction_loss = tf.reduce_mean(
+                    [
+                        self.compute_reconstruction_loss(batch_to, embedding_to),
+                        self.compute_reconstruction_loss(batch_from, embedding_from),
+                    ]
                 )
+
                 loss = tf.reduce_mean(ce_loss) + tf.reduce_mean(reconstruction_loss)
-            elif self.decoding_method == "autoencoder":
-                ce_loss, _, _ = self.compute_umap_loss(batch_to, batch_from)
-                reconstruction_loss = None
-                loss = ce_loss
             else:
+
                 ce_loss, embedding_to, embedding_from = self.compute_umap_loss(
                     batch_to, batch_from
                 )
+                reconstruction_loss = None
+                loss = ce_loss
         if self.decoding_method == "autoencoder":
             grads = tape.gradient(
                 loss,
@@ -190,10 +189,13 @@ class UMAP_neural_network(UMAP_tensorflow):
         # "network" implies the decoder is not trained jointly with the encoder
         if self.decoding_method == "network":
             with tf.GradientTape() as tape:
-                reconstruction_loss = self.compute_reconstruction_loss(
-                    batch_to, batch_from, embedding_to, embedding_from
+                reconstruction_loss = tf.reduce_mean(
+                    [
+                        self.compute_reconstruction_loss(batch_to, embedding_to),
+                        self.compute_reconstruction_loss(batch_from, embedding_from),
+                    ]
                 )
-            grads = tape.gradient(loss, self.decoder.trainable_variables)
+            grads = tape.gradient(reconstruction_loss, self.decoder.trainable_variables)
             grads = [tf.clip_by_value(grad, -4.0, 4.0) for grad in grads]
             self.optimizer.apply_gradients(zip(grads, self.decoder.trainable_variables))
 
@@ -243,13 +245,29 @@ class UMAP_neural_network(UMAP_tensorflow):
             self.decoder is None
         ):
             self.decoder = tf.keras.Sequential()
-            self.decoder.add(tf.keras.layers.InputLayer(input_shape=self.dims))
+            self.decoder.add(tf.keras.layers.InputLayer(input_shape=self.n_components))
             self.decoder.add(tf.keras.layers.Flatten())
             self.decoder.add(tf.keras.layers.Dense(units=100, activation="relu"))
             self.decoder.add(tf.keras.layers.Dense(units=100, activation="relu"))
             self.decoder.add(tf.keras.layers.Dense(units=100, activation="relu"))
-            self.decoder.add(tf.keras.layers.Dense(units=np.product(self.dims)))
+            self.decoder.add(
+                tf.keras.layers.Dense(units=np.product(self.dims), activation="sigmoid")
+            )
             self.decoder.add(tf.keras.layers.Reshape(self.dims))
+
+    def create_validation_iterator(self):
+        """ Create an iterator that returns validation X and Y
+        """
+        # create a Y validation dataset if one doesn't exist
+        if self.valid_Y is None:
+            self.valid_Y = np.zeros(len(self.valid_X)) - 1
+
+        data_valid = tf.data.Dataset.from_tensor_slices((self.valid_X, self.valid_Y))
+        data_valid = data_valid.cache()
+        data_valid = data_valid.batch(self.batch_size)
+        data_valid = data_valid.prefetch(buffer_size=1)
+
+        return data_valid, len(self.valid_X)
 
     def embed_data(self, X, y, index, inverse, **kwargs):
 
@@ -270,39 +288,89 @@ class UMAP_neural_network(UMAP_tensorflow):
             self.batch_size = 100
 
         # create iterator for data/edges
-        edge_iter, samp_per_epoch = self.create_edge_iterator(
+        edge_iter, n_samp_per_epoch = self.create_edge_iterator(
             X, head, tail, epochs_per_sample
         )
 
         # number of batches corresponding to one epoch
-        batches_per_epoch = int(samp_per_epoch / self.batch_size)
+        n_batches_per_epoch = int(n_samp_per_epoch / self.batch_size)
 
+        #
+        if (
+            self.decoding_method in ["autoencoder", "network"]
+            and self.valid_X is not None
+        ):
+            data_valid, n_valid_samp = self.create_validation_iterator()
+            # number of batches corresponding to one epoch
+            n_valid_batches_per_epoch = int(n_valid_samp / self.batch_size)
         if self.verbose:
             print(ts(), "Embedding with TensorFlow")
 
-        iter_ = zip(edge_iter, np.arange(batches_per_epoch * self.training_epochs))
+        # create iterator for batch loop
+        iter_ = zip(edge_iter, np.arange(n_batches_per_epoch * self.training_epochs))
         if self.verbose:
             epoch_iter = tqdm(total=self.training_epochs, desc="epoch")
             iter_ = tqdm(
-                iter_, desc="batch", total=self.training_epochs * batches_per_epoch
+                iter_, desc="batch", total=self.training_epochs * n_batches_per_epoch
             )
 
-        train_loss = tf.keras.metrics.Mean("train_loss", dtype=tf.float32)
+        train_loss_umap_summary = tf.keras.metrics.Mean(
+            "train_loss_umap", dtype=tf.float32
+        )
+
+        if self.decoding_method in ["autoencoder", "network"]:
+            train_loss_recon_summary = tf.keras.metrics.Mean(
+                "train_loss_recon", dtype=tf.float32
+            )
+            if self.valid_X is not None:
+                valid_loss_recon_summary = tf.keras.metrics.Mean(
+                    "valid_loss_recon", dtype=tf.float32
+                )
 
         # loop through batches
         epoch = 0
         for (batch_to, batch_from), batch in iter_:
             # loop through batches
-            ce_loss = self.train(batch_to, batch_from)
-            train_loss(ce_loss)
+            ce_loss, reconstruction_loss = self.train(batch_to, batch_from)
+            train_loss_umap_summary(ce_loss)
+            if self.decoding_method in ["autoencoder", "network"]:
+                train_loss_recon_summary(reconstruction_loss)
 
-            with self.summary_writer.as_default():
-                tf.summary.scalar("loss/train", train_loss.result(), step=batch)
-                self.summary_writer.flush()
+            with self.summary_writer_train.as_default():
+                tf.summary.scalar(
+                    "umap_loss", train_loss_umap_summary.result(), step=batch
+                )
+                if self.decoding_method in ["autoencoder", "network"]:
+                    tf.summary.scalar(
+                        "recon_loss", train_loss_recon_summary.result(), step=batch,
+                    )
+                self.summary_writer_train.flush()
 
-            if (batch % batches_per_epoch == 0) & (batch != 0):
+            if (batch % n_batches_per_epoch == 0) & (batch != 0):
                 epoch_iter.update(1)
                 epoch += 1
+
+                # compute test loss for reconstruction
+                if (
+                    self.decoding_method in ["autoencoder", "network"]
+                    and self.valid_X is not None
+                ):
+                    for valid_batch_X, valid_batch_Y in iter(data_valid):
+                        # TODO get loss for reconstruction
+                        valid_recon_loss = tf.reduce_mean(
+                            self.compute_reconstruction_loss(valid_batch_X)
+                        )
+                        valid_loss_recon_summary(valid_recon_loss)
+
+                    # save summary information
+                    with self.summary_writer_valid.as_default():
+                        tf.summary.scalar(
+                            "recon_loss", valid_loss_recon_summary.result(), step=batch,
+                        )
+                        self.summary_writer_valid.flush()
+
+        # complete iterator
+        epoch_iter.update(self.training_epochs - epoch_iter.n)
         # self.summary_writer.close()
 
         if self.verbose:
@@ -320,6 +388,12 @@ class UMAP_neural_network(UMAP_tensorflow):
         network based.
         """
         return super().transform(X)
+
+    def original_inverse_transform(self, X):
+        """Run the original inverse_transform method from UMAP, rather than neural
+        network based.
+        """
+        return super().inverse_transform(X)
 
     def transform(self, X):
         """Transform X into the existing embedded space and return that
@@ -348,3 +422,32 @@ class UMAP_neural_network(UMAP_tensorflow):
             )
         projections = np.vstack(projections)
         return projections
+
+    def inverse_transform(self, X):
+        """Transform X in the existing embedded space back into the input
+        data space and return that transformed output.
+        Parameters
+        ----------
+        X : array, shape (n_samples, n_components)
+            New points to be inverse transformed.
+        Returns
+        -------
+        X_new : array, shape (n_samples, n_features)
+            Generated data points new data in data space.
+        """
+
+        if self.decoding_method in ["autoencoder", "network"]:
+            n_batches = np.ceil(len(X) / self.batch_size).astype(int)
+
+            projections = []
+            for batch in np.arange(n_batches):
+                projections.append(
+                    self.decoder(
+                        X[(batch * self.batch_size) : ((batch + 1) * self.batch_size)]
+                    ).numpy()
+                )
+            projections = np.vstack(projections)
+            return projections
+
+        else:
+            return self.original_inverse_transform(X)
