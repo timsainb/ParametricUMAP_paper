@@ -24,15 +24,16 @@ class UMAP_neural_network(UMAP_tensorflow):
         self,
         optimizer=tf.keras.optimizers.Adam(1e-3),
         tensorboard_logdir=None,
-        batch_size=None,  # size of batch used for batch training
-        dims=None,  # dimensionality of data, if not flat (e.g. images for ConvNet)
-        negative_sample_rate=2,  # how many negative samples per positive samples for training
-        encoder=None,  # the neural net used for encoding (defaults to 3 layer 100 neuron fc)
-        decoder=None,  # the neural net used for decoding (defaults to 3 layer 100 neuron fc)
-        training_epochs=50,  # number of epochs to train for
+        batch_size=None,
+        dims=None,
+        max_epochs_per_sample=10,
+        negative_sample_rate=2,
+        encoder=None,
+        decoder=None,
+        training_epochs=50,
         decoding_method=None,  # "autoencoder", "network", or None
-        valid_X=None,  # validation data for reconstruction and classification error
-        valid_Y=None,  # validation labels for reconstruction and classification error
+        valid_X=None,
+        valid_Y=None,
         *args,
         **kwargs
     ):
@@ -42,7 +43,9 @@ class UMAP_neural_network(UMAP_tensorflow):
         self.batch_size = (
             batch_size  # number of elements per batch for tensorflow embedding
         )
-
+        self.max_epochs_per_sample = (
+            max_epochs_per_sample  # maximum number of repeated edges during training
+        )
         #   (higher = more memory load, lower = less difference between low and high probabilility)
         self.optimizer = optimizer
 
@@ -183,36 +186,33 @@ class UMAP_neural_network(UMAP_tensorflow):
 
         return ce_loss, reconstruction_loss
 
-    def batch_epoch_edges(self, edges_to, edges_from):
-        """ permutes and batches edges for epoch
-        """
+    def create_edge_iterator(self, X, head, tail, epochs_per_sample):
+        """ create an iterator for data/edges
+            """
 
-        n_batches = int(len(edges_to) / self.batch_size)
-        permutation_mask = np.random.permutation(len(edges_to))[
-            : n_batches * self.batch_size
-        ]
-        to_all = tf.reshape(
-            tf.gather(edges_to, permutation_mask), (n_batches, self.batch_size)
-        )
-        from_all = tf.reshape(
-            tf.gather(edges_from, permutation_mask), (n_batches, self.batch_size)
-        )
-        return tf.data.Dataset.from_tensor_slices((to_all, from_all))
+        epochs_per_sample = np.clip(
+            (epochs_per_sample / np.max(epochs_per_sample))
+            * self.max_epochs_per_sample,
+            1,
+            self.max_epochs_per_sample,
+        ).astype("int")
 
-    def create_edge_iterator(self, head, tail, epochs_per_sample):
-        """ create an iterator for edges
-        """
+        # repeat data (this is a little memory intensive)
+        edges_to = np.repeat(head, epochs_per_sample)
+        edges_from = np.repeat(tail, epochs_per_sample)
 
-        edges_to_exp, edges_from_exp = (
-            np.array([np.repeat(head, epochs_per_sample.astype("int"))]),
-            np.array([np.repeat(tail, epochs_per_sample.astype("int"))]),
-        )
-        edge_iter = tf.data.Dataset.from_tensor_slices((edges_to_exp, edges_from_exp))
-        edge_iter = edge_iter.repeat()
-        edge_iter = edge_iter.map(self.batch_epoch_edges)
-        edge_iter = edge_iter.prefetch(buffer_size=10)
+        X_to = X[edges_to].reshape([len(edges_to)] + self.dims)
+        X_from = X[edges_from].reshape([len(edges_from)] + self.dims)
 
-        return iter(edge_iter), np.shape(edges_to_exp)[1]
+        # create tensorflow dataset, generating an epoch of batches
+        data_train = tf.data.Dataset.from_tensor_slices((X_to, X_from))
+        data_train = data_train.repeat()
+        data_train = data_train.shuffle(self.batch_size * 5)
+        # data_train = data_train.cache()
+        data_train = data_train.batch(self.batch_size)
+        data_train = data_train.prefetch(buffer_size=5)
+
+        return iter(data_train), len(X_to)
 
     def prepare_networks(self):
 
@@ -279,13 +279,14 @@ class UMAP_neural_network(UMAP_tensorflow):
             self.batch_size = 100
 
         # create iterator for data/edges
-        edge_iter, n_edges_per_epoch = self.create_edge_iterator(
-            head, tail, epochs_per_sample
+        edge_iter, n_samp_per_epoch = self.create_edge_iterator(
+            X, head, tail, epochs_per_sample
         )
 
-        # get batches per epoch
-        n_batches_per_epoch = int(np.ceil(n_edges_per_epoch / self.batch_size))
+        # number of batches corresponding to one epoch
+        n_batches_per_epoch = int(n_samp_per_epoch / self.batch_size)
 
+        #
         if (
             self.decoding_method in ["autoencoder", "network"]
             and self.valid_X is not None
@@ -295,6 +296,14 @@ class UMAP_neural_network(UMAP_tensorflow):
             n_valid_batches_per_epoch = int(n_valid_samp / self.batch_size)
         if self.verbose:
             print(ts(), "Embedding with TensorFlow")
+
+        # create iterator for batch loop
+        iter_ = zip(edge_iter, np.arange(n_batches_per_epoch * self.training_epochs))
+        if self.verbose:
+            epoch_iter = tqdm(total=self.training_epochs, desc="epoch")
+            iter_ = tqdm(
+                iter_, desc="batch", total=self.training_epochs * n_batches_per_epoch
+            )
 
         train_loss_umap_summary = tf.keras.metrics.Mean(
             "train_loss_umap", dtype=tf.float32
@@ -309,64 +318,50 @@ class UMAP_neural_network(UMAP_tensorflow):
                     "valid_loss_recon", dtype=tf.float32
                 )
 
-        epoch_iter = zip(edge_iter, np.arange(self.training_epochs))
-        if self.verbose:
-            epoch_iter = tqdm(epoch_iter, desc="epoch", total=self.training_epochs)
-
-        batch = 0
-        for edge_epoch, epoch in epoch_iter:
-
-            if self.verbose:
-                edge_tqdm = tqdm(desc="batch", total=n_batches_per_epoch, leave=False)
+        # loop through batches
+        epoch = 0
+        for (batch_to, batch_from), batch in iter_:
             # loop through batches
-            for batch_to, batch_from in edge_epoch:
-                batch += 1
-                # get x and y for batch
-                batch_to = X[batch_to]
-                batch_from = X[batch_from]
-                ce_loss, reconstruction_loss = self.train(batch_to, batch_from)
-                train_loss_umap_summary(ce_loss)
+            ce_loss, reconstruction_loss = self.train(batch_to, batch_from)
+            train_loss_umap_summary(ce_loss)
+            if self.decoding_method in ["autoencoder", "network"]:
+                train_loss_recon_summary(reconstruction_loss)
+
+            with self.summary_writer_train.as_default():
+                tf.summary.scalar(
+                    "umap_loss", train_loss_umap_summary.result(), step=batch
+                )
                 if self.decoding_method in ["autoencoder", "network"]:
-                    train_loss_recon_summary(reconstruction_loss)
-
-                # save summary information
-                with self.summary_writer_train.as_default():
                     tf.summary.scalar(
-                        "umap_loss", train_loss_umap_summary.result(), step=batch
+                        "recon_loss", train_loss_recon_summary.result(), step=batch,
                     )
-                    if self.decoding_method in ["autoencoder", "network"]:
-                        tf.summary.scalar(
-                            "recon_loss", train_loss_recon_summary.result(), step=batch,
+                self.summary_writer_train.flush()
+
+            if (batch % n_batches_per_epoch == 0) & (batch != 0):
+                epoch_iter.update(1)
+                epoch += 1
+
+                # compute test loss for reconstruction
+                if (
+                    self.decoding_method in ["autoencoder", "network"]
+                    and self.valid_X is not None
+                ):
+                    for valid_batch_X, valid_batch_Y in iter(data_valid):
+                        # TODO get loss for reconstruction
+                        valid_recon_loss = tf.reduce_mean(
+                            self.compute_reconstruction_loss(valid_batch_X)
                         )
-                    self.summary_writer_train.flush()
+                        valid_loss_recon_summary(valid_recon_loss)
 
-                    if self.verbose:
-                        edge_tqdm.update(1)
+                    # save summary information
+                    with self.summary_writer_valid.as_default():
+                        tf.summary.scalar(
+                            "recon_loss", valid_loss_recon_summary.result(), step=batch,
+                        )
+                        self.summary_writer_valid.flush()
 
-            if self.verbose:
-                # close tqdm iterator
-                edge_tqdm.update(edge_tqdm.total - edge_tqdm.n)
-                edge_tqdm.close()
-
-            # compute test loss for reconstruction
-            if (
-                self.decoding_method in ["autoencoder", "network"]
-                and self.valid_X is not None
-            ):
-                for valid_batch_X, valid_batch_Y in iter(data_valid):
-                    # get loss for reconstruction
-                    valid_recon_loss = tf.reduce_mean(
-                        self.compute_reconstruction_loss(valid_batch_X)
-                    )
-                    valid_loss_recon_summary(valid_recon_loss)
-
-                # save summary information
-                with self.summary_writer_valid.as_default():
-                    tf.summary.scalar(
-                        "recon_loss", valid_loss_recon_summary.result(), step=batch,
-                    )
-                    self.summary_writer_valid.flush()
-
+        # complete iterator
+        epoch_iter.update(self.training_epochs - epoch_iter.n)
         # self.summary_writer.close()
 
         if self.verbose:
