@@ -147,57 +147,42 @@ class UMAP_neural_network(UMAP_tensorflow):
         reconstruction_loss = self.binary_cross_entropy(X, X_r)
         return reconstruction_loss
 
-    # @tf.function
+    @tf.function
     def train(self, batch_to, batch_from):
         with tf.GradientTape() as tape:
+            # all networks get UMAP loss
+            ce_loss, embedding_to, embedding_from = self.compute_umap_loss(
+                batch_to, batch_from
+            )
+
             if self.decoding_method == "autoencoder":
-                ce_loss, embedding_to, embedding_from = self.compute_umap_loss(
-                    batch_to, batch_from
-                )
+
                 reconstruction_loss = tf.reduce_mean(
                     [
                         self.compute_reconstruction_loss(batch_to, embedding_to),
                         self.compute_reconstruction_loss(batch_from, embedding_from),
                     ]
                 )
-
-                loss = tf.reduce_mean(ce_loss) + tf.reduce_mean(reconstruction_loss)
+            elif self.decoding_method == "network":
+                # the same loss as autoencoder, but stopping the gradient before the embedding
+                reconstruction_loss = tf.reduce_mean(
+                    [
+                        self.compute_reconstruction_loss(
+                            batch_to, tf.stop_gradient(embedding_to)
+                        ),
+                        self.compute_reconstruction_loss(
+                            batch_from, tf.stop_gradient(embedding_from)
+                        ),
+                    ]
+                )
             else:
+                reconstruction_loss = [0.0]
 
-                ce_loss, embedding_to, embedding_from = self.compute_umap_loss(
-                    batch_to, batch_from
-                )
-                reconstruction_loss = None
-                loss = ce_loss
-        if self.decoding_method == "autoencoder":
-            grads = tape.gradient(
-                loss,
-                self.encoder.trainable_variables + self.decoder.trainable_variables,
-            )
-            grads = [tf.clip_by_value(grad, -4.0, 4.0) for grad in grads]
-            self.optimizer.apply_gradients(
-                zip(
-                    grads,
-                    self.encoder.trainable_variables + self.decoder.trainable_variables,
-                )
-            )
-        else:
-            grads = tape.gradient(loss, self.encoder.trainable_variables)
-            grads = [tf.clip_by_value(grad, -4.0, 4.0) for grad in grads]
-            self.optimizer.apply_gradients(zip(grads, self.encoder.trainable_variables))
+            loss = tf.reduce_mean(ce_loss) + tf.reduce_mean(reconstruction_loss)
 
-        # "network" implies the decoder is not trained jointly with the encoder
-        if self.decoding_method == "network":
-            with tf.GradientTape() as tape:
-                reconstruction_loss = tf.reduce_mean(
-                    [
-                        self.compute_reconstruction_loss(batch_to, embedding_to),
-                        self.compute_reconstruction_loss(batch_from, embedding_from),
-                    ]
-                )
-            grads = tape.gradient(reconstruction_loss, self.decoder.trainable_variables)
+            grads = tape.gradient(loss, self.trainable_variables,)
             grads = [tf.clip_by_value(grad, -4.0, 4.0) for grad in grads]
-            self.optimizer.apply_gradients(zip(grads, self.decoder.trainable_variables))
+            self.optimizer.apply_gradients(zip(grads, self.trainable_variables,))
 
         return ce_loss, reconstruction_loss
 
@@ -254,6 +239,12 @@ class UMAP_neural_network(UMAP_tensorflow):
                 tf.keras.layers.Dense(units=np.product(self.dims), activation="sigmoid")
             )
             self.decoder.add(tf.keras.layers.Reshape(self.dims))
+
+        # get list of trainable variables for gradient descent
+        self.trainable_variables = self.encoder.trainable_variables
+
+        if self.decoding_method in ["autoencoder", "network"]:
+            self.trainable_variables += self.decoder.trainable_variables
 
     def create_validation_iterator(self):
         """ Create an iterator that returns validation X and Y
