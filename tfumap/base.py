@@ -351,6 +351,7 @@ class UMAP_tensorflow(umap_.UMAP):
 
         # Currently not checking if any duplicate points have differing labels
         # Might be worth throwing a warning...
+
         if y is not None:
             len_X = len(X) if not self._sparse_data else X.shape[0]
             if len_X != len(y):
@@ -444,6 +445,7 @@ class UMAP_tensorflow(umap_.UMAP):
                 # #                                        target_graph -
                 # #                                        product)
                 # self.graph_ = product
+                print("COMPUTING SIMPLICIAL SET INTERSECTION")
                 self.graph_ = general_simplicial_set_intersection(
                     self.graph_, target_graph, self.target_weight
                 )

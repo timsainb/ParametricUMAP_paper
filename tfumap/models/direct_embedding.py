@@ -66,7 +66,7 @@ class UMAP_tensorflow_direct_embedding(UMAP_tensorflow):
             ).astype(np.float32)
         elif isinstance(init, str) and init == "spectral":
             # We add a little noise to avoid local minima for optimization to come
-
+            print("self.metric_kwds", self.metric_kwds, self.metric)
             initialisation = spectral_layout(
                 self._raw_data,
                 self.graph_,
@@ -197,7 +197,7 @@ class UMAP_tensorflow_direct_embedding(UMAP_tensorflow):
 
         # get data from graph
         graph, epochs_per_sample, head, tail, weight, n_vertices = get_graph_elements(
-            self.graph_, self.training_epochs
+            self.graph_, self.n_epochs
         )
 
         # get embedding
