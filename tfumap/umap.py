@@ -5,6 +5,8 @@ import tensorflow as tf
 import numpy as np
 from tfumap.base import UMAP_tensorflow
 from tqdm.autonotebook import tqdm
+import os
+import pandas as pd
 import tempfile
 
 tf.get_logger().setLevel("INFO")
@@ -19,33 +21,35 @@ import joblib
 from umap.utils import ts
 from umap.spectral import spectral_layout
 
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+
 
 class UMAP_neural_network(UMAP_tensorflow):
     def __init__(
         self,
         optimizer=None,
-        tensorboard_logdir=None,
-        batch_size=None,
-        dims=None,
-        negative_sample_rate=2,
-        max_epochs_per_sample=None,
-        direct_embedding=False,
-        train_classifier=False,
-        encoder=None,
-        decoder=None,
-        classifier=None,
-        training_epochs=50,
-        decoding_method=None,
-        valid_X=None,
-        valid_Y=None,
-        classification_loss_weight=1.0,
-        umap_loss_weight=1.0,
-        reconstruction_loss_weight=1.0,
+        tensorboard_logdir=None,  # directory for tensorboard log
+        batch_size=None,  # size of batch used for batch training
+        dims=None,  # dimensionality of data, if not flat (e.g. images for ConvNet)
+        negative_sample_rate=2,  # how many negative samples per positive samples for training
+        max_sample_repeats_per_epoch=None,  # (setting this value to 1 is equivalent to computing UMAP on nearest neighbors graph without fuzzy_simplicial_set)
+        direct_embedding=False,  # whether to learn embeddings directly, or use neural network
+        train_classifier=False,  # whether a classifier network should be jointly trained with data
+        encoder=None,  # the neural net used for encoding (defaults to 3 layer 100 neuron fc)
+        decoder=None,  # the neural net used for decoding (defaults to 3 layer 100 neuron fc)
+        classifier=None,  # the neural net used for decoding (defaults to 3 layer 100 neuron fc)
+        training_epochs=None,  # number of epochs to train for ()
+        decoding_method=None,  # how to decode "autoencoder", "network", or None
+        valid_X=None,  # validation data for reconstruction and classification error
+        valid_Y=None,  # validation labels for reconstruction and classification error
+        classification_loss_weight=1.0,  # weight for the classification loss
+        umap_loss_weight=1.0,  # weight for the umap loss
+        reconstruction_loss_weight=1.0,  # weight for the reconstruction loss
         *args,
         **kwargs
     ):
-        """
-        [summary]
+        """ UMAP in tensorflow. 
+        Subclass of UMAP that performs embeddings using tensorflow. 
 
         Parameters
         ----------
@@ -60,7 +64,7 @@ class UMAP_neural_network(UMAP_tensorflow):
             dimensionality of data, if not flat (e.g. images for ConvNet), by default None
         negative_sample_rate : int, optional
             How many negative samples per positive samples for training, by default 2
-        max_epochs_per_sample : [type], optional
+        max_sample_repeats_per_epoch : int, optional
             maximum number of times each edge can be sampled for one epoch (setting this value to
              1 is equivalent to computing UMAP on nearest neighbors graph without 
              fuzzy_simplicial_set), by default None
@@ -82,9 +86,9 @@ class UMAP_neural_network(UMAP_tensorflow):
                 * "autoencoder"
                 * "network"
                 * None
-        valid_X : [type], optional
+        valid_X : np.array, optional
             validation data for reconstruction and classification error, by default None
-        valid_Y : [type], optional
+        valid_Y : np.array, optional
             validation labels for reconstruction and classification error, by default None
         classification_loss_weight : float, optional
             weight for the classification loss, by default 1.0
@@ -98,9 +102,7 @@ class UMAP_neural_network(UMAP_tensorflow):
 
         self.batch_size = batch_size
 
-        self.max_epochs_per_sample = (
-            max_epochs_per_sample  # maximum number of repeated edges during training
-        )
+        self.max_sample_repeats_per_epoch = max_sample_repeats_per_epoch  # maximum number of repeated edges during training
         self.train_classifier = train_classifier
         self.classifier = classifier
         if self.train_classifier:
@@ -145,7 +147,6 @@ class UMAP_neural_network(UMAP_tensorflow):
         #   (which is still used, e.g. for embedding using original method)
         self.training_epochs = training_epochs
 
-        # log summary data for tensorboard
         if tensorboard_logdir == None:
             self.tensorboard_logdir = os.path.join(
                 tempfile.gettempdir(),
@@ -164,6 +165,22 @@ class UMAP_neural_network(UMAP_tensorflow):
     def compute_umap_loss(self, batch_to, batch_from):
         """
         compute the cross entropy loss for learning embeddings
+
+        Parameters
+        ----------
+        batch_to : tf.int or tf.float32
+            Either X or the index locations of the embeddings for verticies (to)
+        batch_from : tf.int or tf.float32
+            Either X or the index locations of the embeddings for verticies (from)
+
+        Returns
+        -------
+        ce_loss : tf.float
+            cross entropy loss for UMAP
+        embedding_to : tf.float
+            embeddings for verticies (to)
+        embedding_from : tf.float
+            embeddings for verticies (from)
         """
 
         if self.direct_embedding:
@@ -204,25 +221,27 @@ class UMAP_neural_network(UMAP_tensorflow):
 
         # cross entropy loss
         (attraction_loss, repellant_loss, ce_loss) = compute_cross_entropy(
-            probabilities_graph, probabilities_distance, negative_sample_scale=1.0
+            probabilities_graph,
+            probabilities_distance,
+            repulsion_strength=self.repulsion_strength,
         )
 
         return ce_loss, embedding_to, embedding_from
 
     def compute_reconstruction_loss(self, X, Z=None):
         """
-        [summary]
+        compute cross entropy loss for reconstruction
 
         Parameters
         ----------
-        X : [type]
+        X : tf.Tensor
             input data
-        Z : [type], optional
+        Z : tf.tensor, optional
             embedding of input data, by default None
 
         Returns
         -------
-        reonstruction_loss
+        reonstruction_loss: tf.float32
             binary cross entropy loss for reconstruction
         """
         if Z is None:
@@ -238,7 +257,22 @@ class UMAP_neural_network(UMAP_tensorflow):
         return reconstruction_loss
 
     def compute_classifier_loss(self, X, y):
-        """ compute the cross entropy loss for classification
+        """
+        compute the cross entropy loss for classification
+
+        Parameters
+        ----------
+        X : tf.Tensor
+            input data
+        y : tf.Tensor
+            input data classes
+
+        Returns
+        -------
+        loss: tf.float32
+            classification loss
+        acc: tf.float32
+            classification accuracy
         """
         # get the encoder output (before embedding)
         base_input = self.encoder_base(X)
@@ -252,6 +286,31 @@ class UMAP_neural_network(UMAP_tensorflow):
 
     @tf.function
     def train_batch(self, batch_to, batch_from, X=None, y=None):
+        """
+        One training step for embedding / reconstructing / classifying data
+
+        Parameters
+        ----------
+        batch_to : [type]
+            either data, or indices of data (if direct_embedding)
+        batch_from : [type]
+            either data, or indices of data (if direct_embedding)
+        X : [type], optional
+            labeled data for classification
+        y : [type], optional
+            labels for classification
+
+        Returns
+        -------
+        umap_loss
+            cross entropy loss for umap
+        reconstruction_loss
+            cross entropy loss for reconstruction
+        classifier_loss
+            cross entropy loss for classifier
+        classifier_acc
+            accuracy for classifier
+        """
         with tf.GradientTape() as tape:
             # all methods get UMAP loss
             umap_loss, embedding_to, embedding_from = self.compute_umap_loss(
@@ -333,12 +392,12 @@ class UMAP_neural_network(UMAP_tensorflow):
         """ create an iterator for edges
         """
 
-        if self.max_epochs_per_sample is not None:
+        if self.max_sample_repeats_per_epoch is not None:
             epochs_per_sample = np.clip(
                 (epochs_per_sample / np.max(epochs_per_sample))
-                * self.max_epochs_per_sample,
+                * self.max_sample_repeats_per_epoch,
                 1,
-                self.max_epochs_per_sample,
+                self.max_sample_repeats_per_epoch,
             ).astype("int")
 
         edges_to_exp, edges_from_exp = (
@@ -405,7 +464,10 @@ class UMAP_neural_network(UMAP_tensorflow):
         return embedding
 
     def prepare_networks(self):
-
+        """
+        Generates networks for classification, embedding, reconstruction. Gets a list of
+        trainable variables for training step. 
+        """
         if self.direct_embedding:
             self.trainable_variables = [self.embedding]
         else:
@@ -481,7 +543,10 @@ class UMAP_neural_network(UMAP_tensorflow):
         return data_valid, len(self.valid_X)
 
     def create_classification_iterator(self, X_labeled, y_labeled):
-        # Creates a tensorflow iterator for classification data (X, y)
+        """
+        Creates a tensorflow iterator for classification data (X, y)
+        """
+        #
         # create labeled data iterator
         self.labeled_data = tf.data.Dataset.from_tensor_slices((X_labeled, y_labeled))
         self.labeled_data = self.labeled_data.repeat()
@@ -491,13 +556,26 @@ class UMAP_neural_network(UMAP_tensorflow):
 
         return iter(self.labeled_data)
 
-    def embed_data(self, X, y, index, inverse, **kwargs):
+    def fit_embed_data(self, X, y, index, inverse, **kwargs):
+        """
+        embeds data from graph representation using tensorflow
+
+        Parameters
+        ----------
+        X : np.array
+            Input dataset
+        y : np.array/list
+            labels for input dataset
+        index : np.array
+            [description]
+        inverse : np.array
+            [description]
+        """
 
         # get data from graph
         graph, epochs_per_sample, head, tail, weight, n_vertices = get_graph_elements(
             self.graph_, self.n_epochs
         )
-
         # number of elements per batch for tensorflow embedding
         if self.batch_size is None:
             # batch size can be larger if its just over embeddings
@@ -552,9 +630,7 @@ class UMAP_neural_network(UMAP_tensorflow):
         # if network is jointly training a classifier, prepare data iterator
         if (y is not None) & self.train_classifier:
             # generate tensorflow iterator for classifier labels
-            labeled_iter = self.create_classification_iterator(
-                self, X_labeled, y_labeled
-            )
+            labeled_iter = self.create_classification_iterator(X_labeled, y_labeled)
 
         # get batches per epoch
         n_batches_per_epoch = int(np.ceil(n_edges_per_epoch / self.batch_size))
@@ -572,6 +648,12 @@ class UMAP_neural_network(UMAP_tensorflow):
 
         # create keras summary objects for loss
         self.create_summary_metrics()
+
+        if self.training_epochs is None:
+            if self.direct_embedding:
+                self.training_epochs = 50
+            else:
+                self.training_epochs = 5
 
         # create a tqdm iterator to show epoch progress
         if self.verbose:
@@ -710,9 +792,8 @@ class UMAP_neural_network(UMAP_tensorflow):
 
     def create_summary_metrics(self):
         """
-        Creates a set of tf.keras summary metrics to store loss information
+        Create keras summary objects for loss
         """
-        # create keras summary objects for loss
         self.summary_metrics = {}
         self.summary_metrics["train_loss_umap"] = tf.keras.metrics.Mean(
             "train_loss_umap", dtype=tf.float32
@@ -812,33 +893,80 @@ class UMAP_neural_network(UMAP_tensorflow):
         else:
             return self.original_inverse_transform(X)
 
+    def predict(self, X, y):
+        """
+        [summary]
+
+        Parameters
+        ----------
+        X : [type]
+            [description]
+        y : [type]
+            [description]
+        Returns
+        -------
+        predictions : array
+            top predictions for each datapoint    
+        accuracy:
+            accuracy of predictions (top 1)
+        """
+
+        # get output of last layer
+        n_batches = np.ceil(len(X) / self.batch_size).astype(int)
+        if len(self.dims) > 1:
+            X = np.reshape(X, [len(X)] + list(self.dims))
+
+        predictions = []
+        for batch in np.arange(n_batches):
+            predictions.append(
+                self.classifier(
+                    self.encoder_base(
+                        X[(batch * self.batch_size) : ((batch + 1) * self.batch_size)]
+                    )
+                ).numpy()
+            )
+        predictions = np.vstack(predictions)
+        accuracy = tf.reduce_mean(
+            tf.keras.metrics.sparse_categorical_accuracy(tf.Variable(y), predictions)
+        )
+        predictions_top_1 = np.argmax(predictions, axis=1)
+
+        return predictions_top_1, accuracy
+
 
 def convert_distance_to_probability(distances, a, b):
-    """
-    convert (euclidean) distance in low-d into probability, 
-        as a function of a, b params. 
-
-    Parameters
-    ----------
-    distances : float
-        euclidean sitances
-    a : int
-        the a/alpha UMAP parameter
-    b : int
-        the b/beta UMAP parameter
-
-    Returns
-    -------
-    probabilities float
-        the edge probability in low-d space
+    """ convert distance representation into probability, 
+        as a function of a, b params
     """
     return 1.0 / (1.0 + a * distances ** (2 * b))
 
 
 def compute_cross_entropy(
-    probabilities_graph, probabilities_distance, EPS=1e-4, negative_sample_scale=1.0
+    probabilities_graph, probabilities_distance, EPS=1e-4, repulsion_strength=1.0
 ):
-    """ Compute cross entropy between low and high probability
+    """
+    Compute cross entropy between low and high probability
+
+    Parameters
+    ----------
+    probabilities_graph : [type]
+        high dimensional probabilities
+    probabilities_distance : [type]
+        low dimensional probabilities
+    EPS : [type], optional
+        offset to to ensure log is taken of a positive number, by default 1e-4
+    repulsion_strength : float, optional
+        strength of repulsion between negative samples, by default 1.0
+
+    Returns
+    -------
+    attraction_term: tf.float32
+        attraction term for cross entropy loss
+    repellant_term: tf.float32
+        repellant term for cross entropy loss
+    cross_entropy: tf.float32
+        cross entropy umap loss
+    
     """
     # cross entropy
     attraction_term = -probabilities_graph * tf.math.log(
@@ -847,7 +975,7 @@ def compute_cross_entropy(
     repellant_term = (
         -(1.0 - probabilities_graph)
         * tf.math.log(tf.clip_by_value(1.0 - probabilities_distance, EPS, 1.0))
-        * negative_sample_scale
+        * repulsion_strength
     )
 
     # balance the expected losses between atrraction and repel
@@ -856,7 +984,9 @@ def compute_cross_entropy(
 
 
 def remove_redundant_edges(graph):
-
+    """
+    Removes redunancies in graph
+    """
     edges = graph.nonzero()
     # remove redundancies
     redundant_edges = edges[0] <= edges[1]
@@ -869,6 +999,31 @@ def remove_redundant_edges(graph):
 
 
 def get_graph_elements(graph_, n_epochs):
+    """
+    gets elements of graphs, weights, and number of epochs per edge
+
+    Parameters
+    ----------
+    graph_ : [type]
+        umap graph of probabilities
+    n_epochs : int
+        maximum number of epochs per edge
+
+    Returns
+    -------
+    graph [type]
+        umap graph
+    epochs_per_sample np.array
+        number of epochs to train each sample for
+    head np.array
+        edge head
+    tail np.array
+        edge tail
+    weight np.array
+        edge weight
+    n_vertices int
+        number of verticies in graph
+    """
     ### should we remove redundancies () here??
     # graph_ = remove_redundant_edges(graph_)
 
@@ -895,3 +1050,41 @@ def get_graph_elements(graph_, n_epochs):
     weight = graph.data
 
     return graph, epochs_per_sample, head, tail, weight, n_vertices
+
+
+def retrieve_tensors(logdir, groups=["train", "valid"]):
+    """
+    Grab all tensorboard tensors and put them in one loss dataframe
+
+    Parameters
+    ----------
+    logdir : str
+        Directory containing summary log of loss for tensorboard
+    groups : list, optional
+        groups containing tensors in the summary data, by default ["train", "valid"]
+
+    Returns
+    -------
+    results_df : pd.DataFrame
+        A pandas dataframe of results grabbed from tensorflow summary
+    """
+    #
+    tensor_dfs = []
+    event_accs = {}
+    for group in groups:
+        event_accs[group] = EventAccumulator(
+            os.path.join(logdir, group), size_guidance={"tensors": 0}
+        )
+        event_accs[group].Reload()
+        print(event_accs[group].Tags()["tensors"])
+
+        for tag in event_accs[group].Tags()["tensors"]:
+            tensor_df = pd.DataFrame(
+                [
+                    (w, s, float(tf.make_ndarray(t)), group, tag)
+                    for w, s, t in event_accs[group].Tensors(tag)
+                ],
+                columns=["wall_time", "step", "val", "group", "variable"],
+            )
+            tensor_dfs.append(tensor_df)
+    return pd.concat(tensor_dfs)

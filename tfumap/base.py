@@ -452,7 +452,7 @@ class UMAP_tensorflow(umap_.UMAP):
                 self.graph_ = reset_local_connectivity(self.graph_)
         return index, inverse
 
-    def embed_data(self, X, y, index, inverse):
+    def fit_embed_data(self, X, y, index, inverse):
 
         if isinstance(self.init, np.ndarray):
             init = check_array(self.init, dtype=np.float32, accept_sparse=False)
@@ -501,5 +501,5 @@ class UMAP_tensorflow(umap_.UMAP):
         # create graph and parameters
         index, inverse = self.fit_generate_graph(X, y)
         # perform fit
-        self.embed_data(X, y, index, inverse)
+        self.fit_embed_data(X, y, index, inverse)
         return self
