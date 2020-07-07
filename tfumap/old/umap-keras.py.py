@@ -8,8 +8,6 @@ from tqdm.autonotebook import tqdm
 import os
 import pandas as pd
 import tempfile
-import pickle
-from pathlib2 import Path
 
 tf.get_logger().setLevel("INFO")
 
@@ -26,7 +24,7 @@ from umap.spectral import spectral_layout
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
 
-class tfUMAP(UMAP_tensorflow):
+class tfUMAP(UMAP_tensorflow, tf.keras.Model):
     def __init__(
         self,
         optimizer=None,
@@ -100,7 +98,7 @@ class tfUMAP(UMAP_tensorflow):
         """
         # retrieve everything from base model
         super().__init__(**kwargs)
-        # tf.keras.Model.__init__(self)
+        tf.keras.Model.__init__(self)
         # super(tfUMAP, self).__init__(**kwargs)
 
         self.batch_size = batch_size
@@ -150,8 +148,7 @@ class tfUMAP(UMAP_tensorflow):
         #   (which is still used, e.g. for embedding using original method)
         self.training_epochs = training_epochs
 
-        # create summary writer to log loss information during training
-        if tensorboard_logdir is None:
+        if tensorboard_logdir == None:
             self.tensorboard_logdir = os.path.join(
                 tempfile.gettempdir(),
                 "tensorboard",
@@ -165,76 +162,6 @@ class tfUMAP(UMAP_tensorflow):
         self.summary_writer_valid = tf.summary.create_file_writer(
             self.tensorboard_logdir + "/valid"
         )
-
-    def should_pickle(self, val):
-        # check if this is an imported tensorflow object. If it is, ignore it for pickling
-        # alternatively, try https://stackoverflow.com/a/53398070/200663
-        # module = getattr(val, "__module__", None)
-        # if module is not None:
-        #    submodules = module.split(".")
-        #    if submodules[0] == "tensorflow":
-        #        return False
-        # return True
-        try:
-            pickle.dumps(val)
-        except (
-            pickle.PicklingError,
-            tf.errors.InvalidArgumentError,
-            TypeError,
-            tf.errors.InternalError,
-        ):
-            return False
-        return True
-
-    def __getstate__(self):
-        # this function supports pickling, making sure that objects can be pickled
-        return dict((k, v) for (k, v) in self.__dict__.items() if self.should_pickle(v))
-
-    def save(self, save_location, verbose=True):
-        # save model.pkl
-        with open(os.path.join(save_location, "model.pkl"), "wb") as output:
-            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
-        if verbose:
-            print("Pickle of model saved")
-        # save encoder
-        if self.encoder is not None:
-            self.encoder.save(os.path.join(save_location, "encoder"))
-            if verbose:
-                print("Encoder Keras model saved")
-        # save decoder
-        if self.decoder is not None:
-            self.decoder.save(os.path.join(save_location, "decoder"))
-            if verbose:
-                print("Decoder Keras model saved")
-        # save classifier
-        if self.classifier is not None:
-            self.classifier.save(os.path.join(save_location, "classifier"))
-            if verbose:
-                print("Classifier Keras model saved")
-
-    def load(self, save_location):
-
-        # initialize summary_writer_train
-        self.summary_writer_train = tf.summary.create_file_writer(
-            self.tensorboard_logdir + "/train"
-        )
-        # initialize summary_writer_valid
-        self.summary_writer_valid = tf.summary.create_file_writer(
-            self.tensorboard_logdir + "/valid"
-        )
-        # load encoder
-        if not self.direct_embedding:
-            self.encoder = tf.keras.models.load_model(
-                os.path.join(save_location, "encoder")
-            )
-        if self.decoding_method in ["autoencoder", "network"]:
-            self.decoder = tf.keras.models.load_model(
-                os.path.join(save_location, "decoder")
-            )
-        if self.train_classifier:
-            self.classifier = tf.keras.models.load_model(
-                os.path.join(save_location, "classifier")
-            )
 
     def compute_umap_loss(self, batch_to, batch_from):
         """
@@ -558,7 +485,7 @@ class tfUMAP(UMAP_tensorflow):
                 )
 
             # get list of trainable variables for gradient descent
-            self.training_variables = self.encoder.trainable_variables
+            self.training_variables = self.encoder.training_variables
 
         if (self.decoding_method in ["autoencoder", "network"]) & (
             self.decoder is None
@@ -575,7 +502,7 @@ class tfUMAP(UMAP_tensorflow):
             self.decoder.add(tf.keras.layers.Reshape(self.dims))
 
         if self.decoding_method in ["autoencoder", "network"]:
-            self.training_variables += self.decoder.trainable_variables
+            self.training_variables += self.decoder.training_variables
 
         if self.train_classifier:
             # get name of final layer before embedding for encoder
@@ -600,7 +527,7 @@ class tfUMAP(UMAP_tensorflow):
                         units=self.n_classes, activation="softmax", name="predictions"
                     )
                 )
-                self.training_variables += self.classifier.trainable_variables
+                self.training_variables += self.classifier.training_variables
 
     def create_validation_iterator(self):
         """ Create an iterator that returns validation X and Y
@@ -681,18 +608,13 @@ class tfUMAP(UMAP_tensorflow):
                     )
 
         # if network is jointly training a classifier, get labeled data
-        if self.train_classifier:
-            if y is None:
-                raise ValueError(
-                    "Classifier was specified but no value for y was given for classifier"
-                )
-            else:
-                # get the number of training classes
-                label_mask = y != -1
-                # subset labeled X and Y
-                X_labeled = X[label_mask]
-                y_labeled = y[label_mask]
-                self.n_classes = len(np.unique(y_labeled))
+        if (y is not None) & self.train_classifier:
+            # get the number of training classes
+            label_mask = y != -1
+            # subset labeled X and Y
+            X_labeled = X[label_mask]
+            y_labeled = y[label_mask]
+            self.n_classes = len(np.unique(y_labeled))
 
         # create networks, if one does not exist
         self.prepare_networks()
