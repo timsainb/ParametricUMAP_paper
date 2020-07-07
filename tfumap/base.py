@@ -83,12 +83,74 @@ from umap.umap_ import (
 
 
 class UMAP_tensorflow(umap_.UMAP):
-    def __init__(self, *args, **kwargs):
-        # retrieve everything from base model
-        # super(UMAP_tensorflow, self).__init__(*args, **kwargs)
-        super().__init__(*args, **kwargs)
+    def fit_embed_data(self, X, y, index, inverse):
+        """
+        Performs an embedding on data after a UMAP graph has been constructed.
 
-    def fit_generate_graph(self, X, y=None):
+        Parameters
+        ----------
+        X : array, shape (n_samples, n_features) or (n_samples, n_samples)
+            If the metric is 'precomputed' X must be a square distance
+            matrix. Otherwise it contains a sample per row. If the method
+            is 'exact', X may be a sparse matrix of type 'csr', 'csc'
+            or 'coo'.
+        y : array, shape (n_samples)
+            A target array for supervised dimension reduction. How this is
+            handled is determined by parameters UMAP was instantiated with.
+            The relevant attributes are ``target_metric`` and
+            ``target_metric_kwds``.
+        index : array, shape (n_samples)
+            [description]
+        inverse : array, shape (n_samples)
+            [description]
+        """
+        if self.n_epochs is None:
+            n_epochs = 0
+        else:
+            n_epochs = self.n_epochs
+
+        if self.densmap or self.output_dens:
+            self._densmap_kwds["graph_dists"] = self.graph_dists_
+
+        if self.verbose:
+            print(ts(), "Construct embedding")
+
+        self.embedding_, aux_data = simplicial_set_embedding(
+            self._raw_data[self.index__],  # JH why raw data?
+            self.graph_,
+            self.n_components,
+            self._initial_alpha,
+            self._a,
+            self._b,
+            self.repulsion_strength,
+            self.negative_sample_rate,
+            n_epochs,
+            init,
+            random_state,
+            self._input_distance_func,
+            self._metric_kwds,
+            self.densmap,
+            self._densmap_kwds,
+            self.output_dens,
+            self._output_distance_func,
+            self._output_metric_kwds,
+            self.output_metric in ("euclidean", "l2"),
+            self.random_state is None,
+            self.verbose,
+        )
+
+        self.embedding_ = self.embedding_[self.inverse__]
+        if self.output_dens:
+            self.rad_orig_ = aux_data["rad_orig"][self.inverse__]
+            self.rad_emb_ = aux_data["rad_emb"][self.inverse__]
+
+        if self.verbose:
+            print(ts() + " Finished embedding")
+
+        numba.set_num_threads(self._original_n_threads)
+        self._input_hash = joblib.hash(self._raw_data)
+
+    def fit(self, X, y=None):
         """Generate graph to fit X into an embedded space.
         Optionally use y for supervised dimension reduction.
         Parameters
@@ -124,8 +186,8 @@ class UMAP_tensorflow(umap_.UMAP):
 
         self._validate_parameters()
 
-        # if self.verbose:
-        #   print(str(self))
+        if self.verbose:
+            print(str(self))
 
         self._original_n_threads = numba.get_num_threads()
         if self.n_jobs > 0 and self.njobs is not None:
@@ -446,63 +508,6 @@ class UMAP_tensorflow(umap_.UMAP):
         else:
             self._supervised = False
 
-        self.index__ = index
-        self.inverse__ = inverse
-        return index, inverse
-
-    def fit_embed_data(self, X, y, index, inverse):
-
-        if self.n_epochs is None:
-            n_epochs = 0
-        else:
-            n_epochs = self.n_epochs
-
-        if self.densmap or self.output_dens:
-            self._densmap_kwds["graph_dists"] = self.graph_dists_
-
-        if self.verbose:
-            print(ts(), "Construct embedding")
-
-        self.embedding_, aux_data = simplicial_set_embedding(
-            self._raw_data[self.index__],  # JH why raw data?
-            self.graph_,
-            self.n_components,
-            self._initial_alpha,
-            self._a,
-            self._b,
-            self.repulsion_strength,
-            self.negative_sample_rate,
-            n_epochs,
-            init,
-            random_state,
-            self._input_distance_func,
-            self._metric_kwds,
-            self.densmap,
-            self._densmap_kwds,
-            self.output_dens,
-            self._output_distance_func,
-            self._output_metric_kwds,
-            self.output_metric in ("euclidean", "l2"),
-            self.random_state is None,
-            self.verbose,
-        )
-
-        self.embedding_ = self.embedding_[self.inverse__]
-        if self.output_dens:
-            self.rad_orig_ = aux_data["rad_orig"][self.inverse__]
-            self.rad_emb_ = aux_data["rad_emb"][self.inverse__]
-
-        if self.verbose:
-            print(ts() + " Finished embedding")
-
-        numba.set_num_threads(self._original_n_threads)
-        self._input_hash = joblib.hash(self._raw_data)
-
-    def fit(self, X, y=None):
-        """
-        """
-        # create graph and parameters
-        index, inverse = self.fit_generate_graph(X, y)
-        # perform fit
+        # embed graph
         self.fit_embed_data(X, y, index, inverse)
         return self
