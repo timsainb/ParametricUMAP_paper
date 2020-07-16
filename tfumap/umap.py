@@ -10,6 +10,7 @@ import pandas as pd
 import tempfile
 import pickle
 from pathlib2 import Path
+import codecs
 
 tf.get_logger().setLevel("INFO")
 
@@ -36,15 +37,12 @@ class tfUMAP(UMAP_tensorflow):
         negative_sample_rate=2,  # how many negative samples per positive samples for training
         max_sample_repeats_per_epoch=None,  # (setting this value to 1 is equivalent to computing UMAP on nearest neighbors graph without fuzzy_simplicial_set)
         direct_embedding=False,  # whether to learn embeddings directly, or use neural network
-        train_classifier=False,  # whether a classifier network should be jointly trained with data
         encoder=None,  # the neural net used for encoding (defaults to 3 layer 100 neuron fc)
         decoder=None,  # the neural net used for decoding (defaults to 3 layer 100 neuron fc)
-        classifier=None,  # the neural net used for decoding (defaults to 3 layer 100 neuron fc)
         training_epochs=None,  # number of epochs to train for ()
         decoding_method=None,  # how to decode "autoencoder", "network", or None
         valid_X=None,  # validation data for reconstruction and classification error
         valid_Y=None,  # validation labels for reconstruction and classification error
-        classification_loss_weight=1.0,  # weight for the classification loss
         umap_loss_weight=1.0,  # weight for the umap loss
         reconstruction_loss_weight=1.0,  # weight for the reconstruction loss
         **kwargs
@@ -71,13 +69,9 @@ class tfUMAP(UMAP_tensorflow):
              fuzzy_simplicial_set), by default None
         direct_embedding : bool, optional
             whether to learn embeddings directly, or use neural network, by default False
-        train_classifier : bool, optional
-            whether a classifier network should be jointly trained with data, by default False
         encoder : tf.keras.Sequential, optional
             the neural net used for encoding (defaults to 3 layer 100 neuron fc), by default None
         decoder : tf.keras.Sequential, optional
-            the neural net used for decoding (defaults to 3 layer 100 neuron fc), by default None
-        classifier : tf.keras.Sequential, optional
             the neural net used for decoding (defaults to 3 layer 100 neuron fc), by default None
         training_epochs : int, optional
             number of epochs to train for. Seperate from n_epochs, which here is used for determining
@@ -88,11 +82,9 @@ class tfUMAP(UMAP_tensorflow):
                 * "network"
                 * None
         valid_X : np.array, optional
-            validation data for reconstruction and classification error, by default None
+            validation data for reconstruction error, by default None
         valid_Y : np.array, optional
-            validation labels for reconstruction and classification error, by default None
-        classification_loss_weight : float, optional
-            weight for the classification loss, by default 1.0
+            validation labels for reconstruction error, by default None
         umap_loss_weight : float, optional
             weight for the umap loss, by default 1.0
         reconstruction_loss_weight : float, optional
@@ -100,22 +92,14 @@ class tfUMAP(UMAP_tensorflow):
         """
         # retrieve everything from base model
         super().__init__(**kwargs)
-        # tf.keras.Model.__init__(self)
-        # super(tfUMAP, self).__init__(**kwargs)
 
         self.batch_size = batch_size
 
         self.max_sample_repeats_per_epoch = max_sample_repeats_per_epoch  # maximum number of repeated edges during training
-        self.train_classifier = train_classifier
-        self.classifier = classifier
-        if self.train_classifier:
-            self.compute_sparse_cross_entropy = tf.keras.losses.SparseCategoricalCrossentropy(
-                from_logits=True
-            )
+
         # set weights for each loss component
         self.reconstruction_loss_weight = reconstruction_loss_weight
         self.umap_loss_weight = umap_loss_weight
-        self.classification_loss_weight = classification_loss_weight
 
         # set optimizer, Adam is better for neural networks, Adadelta is better for direct embedding
         if optimizer is None:
@@ -137,10 +121,9 @@ class tfUMAP(UMAP_tensorflow):
         # whether to encode with encoder, or embed directly
         self.direct_embedding = direct_embedding
 
-        self.valid_X = (
-            valid_X  # validation data used for reconstruction or classification
-        )
-        self.valid_Y = valid_Y  # validation labels used for classification
+        self.valid_X = valid_X  # validation data used for reconstruction
+        # TODO valid_Y is not needed without a classifier
+        self.valid_Y = valid_Y  # validation labels used for
 
         # make a binary cross entropy object for reconstruction
         if self.decoding_method in ["autoencoder", "network"]:
@@ -176,12 +159,18 @@ class tfUMAP(UMAP_tensorflow):
         #        return False
         # return True
         try:
-            pickle.dumps(val)
+            # pickle.dumps(val)
+            ## make sure object can be pickled and then re-read
+            # pickle object
+            pickled = codecs.encode(pickle.dumps(val), "base64").decode()
+            # unpickle object
+            unpickled = pickle.loads(codecs.decode(pickled.encode(), "base64"))
         except (
             pickle.PicklingError,
             tf.errors.InvalidArgumentError,
             TypeError,
             tf.errors.InternalError,
+            OverflowError,
         ):
             return False
         return True
@@ -206,11 +195,6 @@ class tfUMAP(UMAP_tensorflow):
             self.decoder.save(os.path.join(save_location, "decoder"))
             if verbose:
                 print("Decoder Keras model saved")
-        # save classifier
-        if self.classifier is not None:
-            self.classifier.save(os.path.join(save_location, "classifier"))
-            if verbose:
-                print("Classifier Keras model saved")
 
     def load(self, save_location):
 
@@ -230,10 +214,6 @@ class tfUMAP(UMAP_tensorflow):
         if self.decoding_method in ["autoencoder", "network"]:
             self.decoder = tf.keras.models.load_model(
                 os.path.join(save_location, "decoder")
-            )
-        if self.train_classifier:
-            self.classifier = tf.keras.models.load_model(
-                os.path.join(save_location, "classifier")
             )
 
     def compute_umap_loss(self, batch_to, batch_from):
@@ -330,38 +310,10 @@ class tfUMAP(UMAP_tensorflow):
         reconstruction_loss = self.binary_cross_entropy(X, X_r)
         return reconstruction_loss
 
-    def compute_classifier_loss(self, X, y):
-        """
-        compute the cross entropy loss for classification
-
-        Parameters
-        ----------
-        X : tf.Tensor
-            input data
-        y : tf.Tensor
-            input data classes
-
-        Returns
-        -------
-        loss: tf.float32
-            classification loss
-        acc: tf.float32
-            classification accuracy
-        """
-        # get the encoder output (before embedding)
-        base_input = self.encoder_base(X)
-        # get predictions for class
-        predictions = self.classifier(base_input)
-        loss = self.compute_sparse_cross_entropy(tf.expand_dims(y, -1), predictions)
-        acc = tf.keras.metrics.sparse_categorical_accuracy(
-            tf.expand_dims(y, -1), predictions
-        )
-        return loss, tf.reduce_mean(acc)
-
     @tf.function
-    def train_batch(self, batch_to, batch_from, X=None, y=None):
+    def train_batch(self, batch_to, batch_from):
         """
-        One training step for embedding / reconstructing / classifying data
+        One training step for embedding / reconstructing 
 
         Parameters
         ----------
@@ -369,21 +321,12 @@ class tfUMAP(UMAP_tensorflow):
             either data, or indices of data (if direct_embedding)
         batch_from : [type]
             either data, or indices of data (if direct_embedding)
-        X : [type], optional
-            labeled data for classification
-        y : [type], optional
-            labels for classification
-
         Returns
         -------
         umap_loss
             cross entropy loss for umap
         reconstruction_loss
             cross entropy loss for reconstruction
-        classifier_loss
-            cross entropy loss for classifier
-        classifier_acc
-            accuracy for classifier
         """
         with tf.GradientTape() as tape:
             # all methods get UMAP loss
@@ -427,22 +370,17 @@ class tfUMAP(UMAP_tensorflow):
                 )
             else:
                 reconstruction_loss = 0.0
-            # get classifier loss if applicable
-            if self.train_classifier:
-                classifier_loss, classifier_acc = self.compute_classifier_loss(X, y)
-            else:
-                classifier_loss, classifier_acc = 0.0, 0.0
+
             loss = (
                 umap_loss * self.umap_loss_weight
                 + reconstruction_loss * self.reconstruction_loss_weight
-                + classifier_loss * self.classification_loss_weight
             )
 
             grads = tape.gradient(loss, self.training_variables)
             grads = [tf.clip_by_value(grad, -4.0, 4.0) * self.alpha for grad in grads]
             self.optimizer.apply_gradients(zip(grads, self.training_variables))
 
-        return umap_loss, reconstruction_loss, classifier_loss, classifier_acc
+        return umap_loss, reconstruction_loss
 
     def batch_epoch_edges(self, edges_to, edges_from):
         """ permutes and batches edges for epoch
@@ -539,7 +477,7 @@ class tfUMAP(UMAP_tensorflow):
 
     def prepare_networks(self):
         """
-        Generates networks for classification, embedding, reconstruction. Gets a list of
+        Generates networks for embedding, reconstruction. Gets a list of
         trainable variables for training step. 
         """
         if self.direct_embedding:
@@ -577,31 +515,6 @@ class tfUMAP(UMAP_tensorflow):
         if self.decoding_method in ["autoencoder", "network"]:
             self.training_variables += self.decoder.trainable_variables
 
-        if self.train_classifier:
-            # get name of final layer before embedding for encoder
-            last_layer = self.encoder.layers[-2].name
-            last_layer_shape = self.encoder.get_layer(last_layer).output.shape[1:]
-            # subset all layers of the encoder but the embedding
-            self.encoder_base = tf.keras.models.Model(
-                [self.encoder.inputs[0]], [self.encoder.get_layer(last_layer).output]
-            )
-
-            if self.classifier is None:
-                self.classifier = tf.keras.Sequential()
-                self.classifier.add(
-                    tf.keras.layers.InputLayer(input_shape=last_layer_shape)
-                )
-                self.classifier.add(tf.keras.layers.Flatten())
-                self.classifier.add(tf.keras.layers.Dense(units=100, activation="relu"))
-                self.classifier.add(tf.keras.layers.Dense(units=100, activation="relu"))
-                self.classifier.add(tf.keras.layers.Dense(units=100, activation="relu"))
-                self.classifier.add(
-                    tf.keras.layers.Dense(
-                        units=self.n_classes, activation="softmax", name="predictions"
-                    )
-                )
-                self.training_variables += self.classifier.trainable_variables
-
     def create_validation_iterator(self):
         """ Create an iterator that returns validation X and Y
         """
@@ -615,20 +528,6 @@ class tfUMAP(UMAP_tensorflow):
         data_valid = data_valid.prefetch(buffer_size=1)
 
         return data_valid, len(self.valid_X)
-
-    def create_classification_iterator(self, X_labeled, y_labeled):
-        """
-        Creates a tensorflow iterator for classification data (X, y)
-        """
-        #
-        # create labeled data iterator
-        self.labeled_data = tf.data.Dataset.from_tensor_slices((X_labeled, y_labeled))
-        self.labeled_data = self.labeled_data.repeat()
-        self.labeled_data = self.labeled_data.shuffle(np.min([len(y_labeled), 1000]))
-        self.labeled_data = self.labeled_data.batch(self.batch_size)
-        self.labeled_data = self.labeled_data.prefetch(buffer_size=1)
-
-        return iter(self.labeled_data)
 
     def fit_embed_data(self, X, y, index, inverse, **kwargs):
         """
@@ -680,20 +579,6 @@ class tfUMAP(UMAP_tensorflow):
                         self.valid_X, [len(self.valid_X)] + list(self.dims)
                     )
 
-        # if network is jointly training a classifier, get labeled data
-        if self.train_classifier:
-            if y is None:
-                raise ValueError(
-                    "Classifier was specified but no value for y was given for classifier"
-                )
-            else:
-                # get the number of training classes
-                label_mask = y != -1
-                # subset labeled X and Y
-                X_labeled = X[label_mask]
-                y_labeled = y[label_mask]
-                self.n_classes = len(np.unique(y_labeled))
-
         # create networks, if one does not exist
         self.prepare_networks()
 
@@ -704,18 +589,12 @@ class tfUMAP(UMAP_tensorflow):
         # create iterator for data/edges
         edge_iter, n_edges_per_epoch = self.create_edge_iterator(head, tail, weight)
 
-        # if network is jointly training a classifier, prepare data iterator
-        if (y is not None) & self.train_classifier:
-            # generate tensorflow iterator for classifier labels
-            labeled_iter = self.create_classification_iterator(X_labeled, y_labeled)
-
         # get batches per epoch
         n_batches_per_epoch = int(np.ceil(n_edges_per_epoch / self.batch_size))
 
         # create an iterator for validation data
         if (
             self.decoding_method in ["autoencoder", "network"]
-            or (self.train_classifier)
         ) and self.valid_X is not None:
             data_valid, n_valid_samp = self.create_validation_iterator()
             # number of batches corresponding to one epoch
@@ -737,7 +616,6 @@ class tfUMAP(UMAP_tensorflow):
             epoch_iter = tqdm(desc="epoch", total=self.training_epochs)
 
         batch = 0
-        X_lab, y_lab = None, None  # default classifier values
         for edge_epoch, epoch in zip(edge_iter, np.arange(self.training_epochs)):
 
             if self.verbose & (n_batches_per_epoch > 200):
@@ -746,32 +624,20 @@ class tfUMAP(UMAP_tensorflow):
             # loop through batches
             for batch_to, batch_from in edge_epoch:
                 batch += 1
-                # if training a classifier, get X and y data
-                if self.train_classifier:
-                    X_lab, y_lab = labeled_iter.next()
 
                 # if this is a direct encoding, the embeddings should be used directly
                 if self.direct_embedding:
-                    (
-                        ce_loss,
-                        reconstruction_loss,
-                        classifier_loss,
-                        classifier_acc,
-                    ) = self.train_batch(batch_to, batch_from, X_lab, y_lab)
+                    (ce_loss, reconstruction_loss,) = self.train_batch(
+                        batch_to, batch_from
+                    )
                 else:
-                    (
-                        ce_loss,
-                        reconstruction_loss,
-                        classifier_loss,
-                        classifier_acc,
-                    ) = self.train_batch(X[batch_to], X[batch_from], X_lab, y_lab)
+                    (ce_loss, reconstruction_loss,) = self.train_batch(
+                        X[batch_to], X[batch_from]
+                    )
                 # save losses to tensorflow summary
                 self.summary_metrics["train_loss_umap"](ce_loss)
                 if self.decoding_method in ["autoencoder", "network"]:
                     self.summary_metrics["train_loss_recon"](reconstruction_loss)
-                if self.train_classifier:
-                    self.summary_metrics["train_loss_classif"](classifier_loss)
-                    self.summary_metrics["train_acc_classif"](classifier_acc)
                 if self.verbose & (n_batches_per_epoch > 200):
                     edge_tqdm.update(1)
 
@@ -789,18 +655,6 @@ class tfUMAP(UMAP_tensorflow):
                             step=batch,
                         )
 
-                    if self.train_classifier:
-                        tf.summary.scalar(
-                            "classif_loss",
-                            self.summary_metrics["train_loss_classif"].result(),
-                            step=batch,
-                        )
-                        tf.summary.scalar(
-                            "classif_acc",
-                            self.summary_metrics["train_acc_classif"].result(),
-                            step=batch,
-                        )
-
                     self.summary_writer_train.flush()
 
             # update tqdm iterators
@@ -811,7 +665,7 @@ class tfUMAP(UMAP_tensorflow):
                     edge_tqdm.close()
                 epoch_iter.update(1)
 
-            # compute test loss for reconstruction and classification
+            # compute test loss for reconstruction
             if self.valid_X is not None and self.direct_embedding is False:
                 for valid_batch_X, valid_batch_Y in iter(data_valid):
                     # get loss for reconstruction
@@ -822,31 +676,12 @@ class tfUMAP(UMAP_tensorflow):
                         )
                         self.summary_metrics["valid_loss_recon"](valid_recon_loss)
 
-                    # get loss for accuracy
-                    if self.train_classifier:
-                        classifier_loss, classifier_acc = self.compute_classifier_loss(
-                            valid_batch_X, valid_batch_Y
-                        )
-                        self.summary_metrics["valid_loss_classif"](classifier_loss)
-                        self.summary_metrics["valid_acc_classif"](classifier_acc)
                 # save summary information
-
                 with self.summary_writer_valid.as_default():
                     if self.decoding_method in ["autoencoder", "network"]:
                         tf.summary.scalar(
                             "recon_loss",
                             self.summary_metrics["valid_loss_recon"].result(),
-                            step=batch,
-                        )
-                    if self.train_classifier:
-                        tf.summary.scalar(
-                            "classif_loss",
-                            self.summary_metrics["valid_loss_classif"].result(),
-                            step=batch,
-                        )
-                        tf.summary.scalar(
-                            "classif_acc",
-                            self.summary_metrics["valid_acc_classif"].result(),
                             step=batch,
                         )
 
@@ -884,32 +719,6 @@ class tfUMAP(UMAP_tensorflow):
                     "valid_loss_recon", dtype=tf.float32
                 )
 
-        if self.train_classifier:
-            self.summary_metrics["train_loss_classif"] = tf.keras.metrics.Mean(
-                "train_loss_classif", dtype=tf.float32
-            )
-            self.summary_metrics["valid_loss_classif"] = tf.keras.metrics.Mean(
-                "valid_loss_classif", dtype=tf.float32
-            )
-            self.summary_metrics["train_acc_classif"] = tf.keras.metrics.Mean(
-                "train_acc_classif", dtype=tf.float32
-            )
-            self.summary_metrics["valid_acc_classif"] = tf.keras.metrics.Mean(
-                "valid_acc_classif", dtype=tf.float32
-            )
-
-    def original_transform(self, X):
-        """Run the original transform method from UMAP, rather than neural
-        network based.
-        """
-        return super().transform(X)
-
-    def original_inverse_transform(self, X):
-        """Run the original inverse_transform method from UMAP, rather than neural
-        network based.
-        """
-        return super().inverse_transform(X)
-
     def transform(self, X):
         """Transform X into the existing embedded space and return that
         transformed output.
@@ -924,7 +733,7 @@ class tfUMAP(UMAP_tensorflow):
         """
         # embed using nearest neighbors method if embedding without a network
         if self.direct_embedding:
-            return self.original_transform(X)
+            return super().transform(X)
 
         n_batches = np.ceil(len(X) / self.batch_size).astype(int)
 
@@ -968,47 +777,7 @@ class tfUMAP(UMAP_tensorflow):
             return projections
 
         else:
-            return self.original_inverse_transform(X)
-
-    def predict(self, X, y):
-        """
-        [summary]
-        # TODO predict should have an option for y to be None
-        Parameters
-        ----------
-        X : [type]
-            [description]
-        y : [type]
-            [description]
-        Returns
-        -------
-        predictions : array
-            top predictions for each datapoint    
-        accuracy:
-            accuracy of predictions (top 1)
-        """
-
-        # get output of last layer
-        n_batches = np.ceil(len(X) / self.batch_size).astype(int)
-        if len(self.dims) > 1:
-            X = np.reshape(X, [len(X)] + list(self.dims))
-
-        predictions = []
-        for batch in np.arange(n_batches):
-            predictions.append(
-                self.classifier(
-                    self.encoder_base(
-                        X[(batch * self.batch_size) : ((batch + 1) * self.batch_size)]
-                    )
-                ).numpy()
-            )
-        predictions = np.vstack(predictions)
-        accuracy = tf.reduce_mean(
-            tf.keras.metrics.sparse_categorical_accuracy(tf.Variable(y), predictions)
-        )
-        predictions_top_1 = np.argmax(predictions, axis=1)
-
-        return predictions_top_1, accuracy
+            return super().inverse_transform(X)
 
 
 def convert_distance_to_probability(distances, a, b):
