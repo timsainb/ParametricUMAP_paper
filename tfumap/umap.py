@@ -11,6 +11,7 @@ import tempfile
 import pickle
 from pathlib2 import Path
 import codecs
+from numba import TypingError
 
 tf.get_logger().setLevel("INFO")
 
@@ -171,6 +172,7 @@ class tfUMAP(UMAP_tensorflow):
             TypeError,
             tf.errors.InternalError,
             OverflowError,
+            TypingError,
         ):
             return False
         return True
