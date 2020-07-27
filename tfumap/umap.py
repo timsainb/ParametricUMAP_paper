@@ -924,7 +924,7 @@ def retrieve_tensors(logdir, groups=["train", "valid"]):
             os.path.join(logdir, group), size_guidance={"tensors": 0}
         )
         event_accs[group].Reload()
-        print(event_accs[group].Tags()["tensors"])
+        #print(event_accs[group].Tags()["tensors"])
 
         for tag in event_accs[group].Tags()["tensors"]:
             tensor_df = pd.DataFrame(
