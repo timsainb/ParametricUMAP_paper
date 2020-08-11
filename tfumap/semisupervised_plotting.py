@@ -4,10 +4,24 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tfumap.umap import retrieve_tensors
 from sklearn.decomposition import PCA
+from tqdm.autonotebook import tqdm
+
+
+def batch(x, batch_size=100):
+    n_batch = int(np.ceil((len(x) / batch_size)))
+    return [x[batch_size * i : batch_size * (i + 1)] for i in range(n_batch)]
 
 
 def plot_umap_classif_results(
-    model, X_valid, Y_valid, X_train, X_labeled, Y_labeled, batch_size
+    model,
+    X_valid,
+    Y_valid,
+    X_train,
+    X_labeled,
+    Y_labeled,
+    batch_size,
+    cmap="coolwarm",
+    cmap2="bwr",
 ):
     # get loss dataframe from tensorboard
     try:
@@ -22,30 +36,37 @@ def plot_umap_classif_results(
     embedding_train = embed_data(X_train, model, batch_size)
 
     # encode data
-    latent_valid = model.encoder(X_valid)
+    batched_X_valid = batch(X_valid)
+    latent_valid = np.vstack(
+        [model.encoder(i) for i in tqdm(batched_X_valid, leave=False)]
+    )
+    # latent_valid = model.encoder(X_valid)
     pca = PCA()
-    z_valid = pca.fit_transform(latent_valid.numpy())
-    latent_lab = model.encoder(X_labeled)
-    z_lab = pca.transform(latent_lab.numpy())
+    z_valid = pca.fit_transform(latent_valid)
+
+    # latent_lab = model.encoder(X_labeled)
+    batched_X_lab = batch(X_labeled)
+    latent_lab = np.vstack([model.encoder(i) for i in tqdm(batched_X_lab, leave=False)])
+    z_lab = pca.transform(latent_lab)
 
     # plot
-    fig, axs = plt.subplots(ncols=4, figsize=(20, 4))
+    fig, axs = plt.subplots(ncols=5, figsize=(26, 4))
     ax = axs[0]
-    ax.scatter(
-        embedding_train[:, 0],
-        embedding_train[:, 1],
-        c="grey",
-        cmap="coolwarm",  # "tab10"
-        s=2,
-        alpha=0.25,
-        rasterized=True,
-    )
+    # ax.scatter(
+    #    embedding_train[:, 0],
+    #    embedding_train[:, 1],
+    #    c="grey",
+    #    cmap=cmap,  # "tab10"
+    #    s=2,
+    #    alpha=0.25,
+    #    rasterized=True,
+    # )
 
     ax.scatter(
         embedding_valid[:, 0],
         embedding_valid[:, 1],
         c=Y_valid,
-        cmap="coolwarm",  # "tab10"
+        cmap=cmap,  # "tab10"
         s=2,
         alpha=0.25,
         rasterized=True,
@@ -57,7 +78,7 @@ def plot_umap_classif_results(
         z_valid[:, 0],
         z_valid[:, 1],
         c=Y_valid.astype(int)[: len(embedding_valid)],
-        cmap="coolwarm",  # "tab10"
+        cmap=cmap,  # "tab10"
         s=2,
         alpha=0.25,
         rasterized=True,
@@ -66,7 +87,7 @@ def plot_umap_classif_results(
         z_lab[:, 0],
         z_lab[:, 1],
         c=Y_labeled,
-        cmap="bwr",  # "tab10"
+        cmap=cmap2,  # "tab10"
         s=100,
         alpha=1,
         rasterized=True,
@@ -85,7 +106,8 @@ def plot_umap_classif_results(
             ci=None,
             ax=ax,
         )
-        ax.set_yscale("log")
+        ax.legend(loc="upper right")
+        ax.set_xscale("log")
         ax.set_title("UMAP loss", fontsize=24)
         ax.set_ylabel("Cross Entropy")
         ax = axs[3]
@@ -97,8 +119,22 @@ def plot_umap_classif_results(
             ci=None,
             ax=ax,
         )
+        ax.legend(loc="upper right")
+        # ax.set_yscale("log")
         ax.set_title("Classif loss", fontsize=24)
         ax.set_ylabel("Cross Entropy")
+        ax = axs[4]
+        sns.lineplot(
+            x="step",
+            y="val",
+            hue="group",
+            data=loss_df[loss_df.variable == "classif_acc"],
+            ci=None,
+            ax=ax,
+        )
+        ax.legend(loc="lower right")
+        ax.set_title("Classif acc", fontsize=24)
+        ax.set_ylabel("Acc")
     plt.show()
 
 
@@ -215,8 +251,6 @@ def get_decision_contour(
     )
 
     ax.scatter(X_train[:, 0], X_train[:, 1], color=color, alpha=1, s=s)
-    ax.scatter(
-        X_labeled[:, 0], X_labeled[:, 1], c=Y_labeled, cmap=plt.cm.bwr, s=100
-    )
+    ax.scatter(X_labeled[:, 0], X_labeled[:, 1], c=Y_labeled, cmap=plt.cm.bwr, s=100)
     ax.set_title("Decision contour")
     return ax

@@ -8,14 +8,17 @@ import pandas as pd
 from sklearn.datasets import make_moons
 
 
-def load_MNIST():
+def load_MNIST(flatten=True):
     # load dataset
     (train_images, Y_train), (test_images, Y_test) = mnist.load_data()
     X_train = (train_images / 255.0).astype("float32")
     X_test = (test_images / 255.0).astype("float32")
-    X_train = X_train.reshape((len(X_train), np.product(np.shape(X_train)[1:])))
-    X_test = X_test.reshape((len(X_test), np.product(np.shape(X_test)[1:])))
-
+    if flatten:
+        X_train = X_train.reshape((len(X_train), np.product(np.shape(X_train)[1:])))
+        X_test = X_test.reshape((len(X_test), np.product(np.shape(X_test)[1:])))
+    else:
+        X_train = np.expand_dims(X_train, -1)
+        X_test = np.expand_dims(X_test, -1)
     # subset a validation set
     n_valid = 10000
     X_valid = X_train[-n_valid:]
@@ -26,14 +29,18 @@ def load_MNIST():
     return X_train, X_test, X_valid, Y_train, Y_test, Y_valid
 
 
-def load_FMNIST():
+def load_FMNIST(flatten=True):
 
     # load dataset
     (train_images, Y_train), (test_images, Y_test) = fashion_mnist.load_data()
     X_train = (train_images / 255.0).astype("float32")
     X_test = (test_images / 255.0).astype("float32")
-    X_train = X_train.reshape((len(X_train), np.product(np.shape(X_train)[1:])))
-    X_test = X_test.reshape((len(X_test), np.product(np.shape(X_test)[1:])))
+    if flatten:
+        X_train = X_train.reshape((len(X_train), np.product(np.shape(X_train)[1:])))
+        X_test = X_test.reshape((len(X_test), np.product(np.shape(X_test)[1:])))
+    else:
+        X_train = np.expand_dims(X_train, -1)
+        X_test = np.expand_dims(X_test, -1)
 
     # subset a validation set
     n_valid = 10000
@@ -45,13 +52,14 @@ def load_FMNIST():
     return X_train, X_test, X_valid, Y_train, Y_test, Y_valid
 
 
-def load_CIFAR10():
+def load_CIFAR10(flatten=True):
     # load dataset
     (train_images, Y_train), (test_images, Y_test) = cifar10.load_data()
     X_train = (train_images / 255.0).astype("float32")
     X_test = (test_images / 255.0).astype("float32")
-    X_train = X_train.reshape((len(X_train), np.product(np.shape(X_train)[1:])))
-    X_test = X_test.reshape((len(X_test), np.product(np.shape(X_test)[1:])))
+    if flatten:
+        X_train = X_train.reshape((len(X_train), np.product(np.shape(X_train)[1:])))
+        X_test = X_test.reshape((len(X_test), np.product(np.shape(X_test)[1:])))
 
     # subset a validation set
     n_valid = 10000

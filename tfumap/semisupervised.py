@@ -87,11 +87,24 @@ def find_a_b(min_dist=0.1):
     return a, b
 
 
+def batch_data(x, batch_size=100):
+    n_batch = int(np.ceil((len(x) / batch_size)))
+    return [x[batch_size * i : batch_size * (i + 1)] for i in range(n_batch)]
+
+
 def compute_classifier_loss(X, y, encoder, classifier, sparse_ce):
     """ compute the cross entropy loss for classification
         """
     d = classifier(encoder(X))
     return sparse_ce(y, d)
+
+
+def compute_classifier_loss_batch(X, y, encoder, classifier, sparse_ce):
+    """ compute the cross entropy loss for classification
+        """
+    X_batch = batch_data(X)
+    pred = tf.stack([classifier(encoder(i)) for i in X_batch])
+    return sparse_ce(y, pred)
 
 
 def compute_umap_loss(
@@ -214,18 +227,20 @@ def create_classification_iterator(X_labeled, y_labeled, batch_size):
     # create labeled data iterator
     labeled_data = tf.data.Dataset.from_tensor_slices((X_labeled, y_labeled))
     labeled_data = labeled_data.repeat()
-    labeled_data = labeled_data.shuffle(np.min([len(y_labeled), 1000]))
+    labeled_data = labeled_data.shuffle(np.min([10000, len(y_labeled)]))
     labeled_data = labeled_data.batch(batch_size)
     labeled_data = labeled_data.prefetch(buffer_size=1)
 
     return iter(labeled_data)
 
 
-def create_validation_iterator(valid_X, valid_Y, batch_size):
+def create_validation_iterator(valid_X, valid_Y, batch_size, repeat=False):
     """ Create an iterator that returns validation X and Y
     """
     data_valid = tf.data.Dataset.from_tensor_slices((valid_X, valid_Y))
     data_valid = data_valid.cache()
+    if repeat:
+        data_valid = data_valid.repeat()
     data_valid = data_valid.batch(batch_size)
     data_valid = data_valid.prefetch(buffer_size=1)
 
