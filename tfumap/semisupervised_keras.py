@@ -1,4 +1,4 @@
-from tfumap.load_datasets import load_CIFAR10, mask_labels
+from tfumap.load_datasets import load_CIFAR10, load_MNIST, load_FMNIST, mask_labels
 import tensorflow as tf
 from tfumap.paths import MODEL_DIR
 import numpy as np
@@ -48,14 +48,6 @@ pretrained_networks = {
             1024: "cifar10_0.0_1024____2020_08_19_10_25_26_973224_umap_augmented",
             "full": "cifar10_0.0_full____2020_08_19_00_40_18_936212_umap_augmented",
         },
-        # "umap_not_augmented": {
-        #    4: "cifar10_0.0_4____2020_08_19_10_31_18_319944_umap_augmented",
-        #    16: "cifar10_0.0_16____2020_08_19_10_32_02_165996_umap_augmented",
-        #    64: "cifar10_0.0_64____2020_08_19_10_32_58_283124_umap_augmented",
-        #    256: "cifar10_0.0_256____2020_08_19_10_34_27_343116_umap_augmented",
-        #    1024: "cifar10_0.0_1024____2020_08_19_10_35_26_231624_umap_augmented",
-        #    "full": "",
-        # },
         "umap_not_augmented": {
             4: "cifar10_0.0_4____2020_08_19_14_35_43_127626_umap_augmented",  #
             16: "cifar10_0.0_16____2020_08_19_14_35_43_867336_umap_augmented",
@@ -80,14 +72,84 @@ pretrained_networks = {
             1024: "cifar10_0.0_1024____2020_08_20_10_52_58_310917_umap_augmented",
             "full": "cifar10_0.0_full____2020_08_20_10_53_00_819968_umap_augmented",
         },
+        "umap_not_augmented_linear_thresh": {
+            4: "cifar10_0.8_4____2020_08_22_22_47_43_598023_umap_augmented",  #
+            16: "cifar10_0.8_16____2020_08_22_22_47_57_967494_umap_augmented",
+            64: "cifar10_0.8_64____2020_08_22_22_47_27_952365_umap_augmented",
+            256: "cifar10_0.8_256____2020_08_22_22_48_38_890043_umap_augmented",
+            1024: "cifar10_0.8_1024____2020_08_22_22_49_43_660652_umap_augmented",
+            "full": "cifar10_0.8_full____2020_08_22_22_49_37_683086_umap_augmented",
+        },
+        "umap_euclidean": {
+            4: "cifar10_0.0_4____2020_08_24_10_10_03_033874_umap_augmented",
+            16: "cifar10_0.0_16____2020_08_24_00_26_41_868150_umap_augmented",
+            64: "cifar10_0.0_64____2020_08_24_00_26_53_791994_umap_augmented",
+            256: "cifar10_0.0_256____2020_08_24_00_22_53_202346_umap_augmented",
+            1024: "cifar10_0.0_1024____2020_08_24_00_22_53_212673_umap_augmented",
+            "full": "cifar10_0.0_full____2020_08_23_23_52_33_359986_umap_augmented",
+        },
+        "umap_learned": {
+            4: "cifar10_0.0_4____2020_08_19_14_35_43_127626_umap_augmented",  #
+            16: "cifar10_0.0_16____2020_08_19_14_35_43_867336_umap_augmented",
+            64: "cifar10_0.0_64____2020_08_19_14_35_43_736036_umap_augmented",
+            256: "cifar10_0.0_256____2020_08_19_14_38_31_105228_umap_augmented",
+            1024: "cifar10_0.0_1024____2020_08_19_14_35_43_823739_umap_augmented",
+            "full": "cifar10_0.0_full____2020_08_19_14_32_51_275942_umap_augmented",
+        },
     },
     "mnist": {
-        "augmented": {4: "", 16: "", 64: "", 256: "", 1024: "", "full": "",},
-        "not_augmented": {4: "", 16: "", 64: "", 256: "", 1024: "", "full": "",},
+        "not_augmented": {
+            4: "mnist_4____2020_08_23_13_59_31_357892_baseline",
+            16: "mnist_16____2020_08_23_14_13_03_306576_baseline",
+            64: "mnist_64____2020_08_23_14_13_19_397319_baseline",
+            256: "mnist_256____2020_08_23_14_12_28_828611_baseline",
+            1024: "mnist_1024____2020_08_23_14_12_00_839816_baseline",
+            "full": "mnist_full____2020_08_23_14_02_35_917340_baseline",
+        },
+        "augmented": {4: "", 16: "", 64: "", 256: "", 1024: "", "full": ""},
+        "umap_euclidean": {
+            4: "mnist_0.0_4____2020_08_23_19_39_30_768509_umap_augmented",
+            16: "mnist_0.0_16____2020_08_23_19_27_31_722774_umap_augmented",
+            64: "mnist_0.0_64____2020_08_23_18_32_38_592348_umap_augmented",
+            256: "mnist_0.0_256____2020_08_23_19_39_57_288829_umap_augmented",
+            1024: "mnist_0.0_1024____2020_08_23_19_44_01_747431_umap_augmented",
+            "full": "mnist_0.0_full____2020_08_23_23_07_06_598185_umap_augmented",
+        },
+        "umap_learned": {
+            4: "mnist_0.0_4____2020_08_24_13_43_38_697668_umap_augmented",
+            16: "mnist_0.0_16____2020_08_24_16_51_10_703116_umap_augmented",
+            64: "mnist_0.0_64____2020_08_24_16_51_16_969542_umap_augmented",
+            256: "mnist_0.0_256____2020_08_24_16_53_11_404946_umap_augmented",
+            1024: "mnist_0.0_1024____2020_08_24_16_53_15_376183_umap_augmented",
+            "full": "mnist_0.0_full____2020_08_24_13_43_38_497837_umap_augmented",
+        },
     },
     "fmnist": {
-        "augmented": {4: "", 16: "", 64: "", 256: "", 1024: "", "full": "",},
-        "not_augmented": {4: "", 16: "", 64: "", 256: "", 1024: "", "full": "",},
+        "not_augmented": {
+            4: "fmnist_4____2020_08_23_14_15_38_194490_baseline",
+            16: "fmnist_16____2020_08_23_14_15_50_074976_baseline",
+            64: "fmnist_64____2020_08_23_14_16_00_145880_baseline",
+            256: "fmnist_256____2020_08_23_14_14_27_904250_baseline",
+            1024: "fmnist_1024____2020_08_23_14_13_39_538728_baseline",
+            "full": "fmnist_full____2020_08_23_14_06_13_546999_baseline",
+        },
+        "augmented": {4: "", 16: "", 64: "", 256: "", 1024: "", "full": ""},
+        "umap_euclidean": {
+            4: "fmnist_0.0_4____2020_08_23_18_48_03_409056_umap_augmented",
+            16: "fmnist_0.0_16____2020_08_23_21_25_30_890380_umap_augmented",
+            64: "fmnist_0.0_64____2020_08_23_19_43_20_063919_umap_augmented",
+            256: "fmnist_0.0_256____2020_08_23_19_44_36_506473_umap_augmented",
+            1024: "fmnist_0.0_1024____2020_08_23_21_25_43_287069_umap_augmented",
+            "full": "fmnist_0.0_full____2020_08_23_23_13_31_899132_umap_augmented",
+        },
+        "umap_learned": {
+            4: "fmnist_0.0_4____2020_08_24_10_19_02_171374_umap_augmented",
+            16: "fmnist_0.0_16____2020_08_24_10_19_11_697170_umap_augmented",
+            64: "fmnist_0.0_64____2020_08_24_10_19_33_327157_umap_augmented",
+            256: "fmnist_0.0_256____2020_08_24_10_19_51_978912_umap_augmented",
+            1024: "fmnist_0.0_1024____2020_08_24_10_20_06_630456_umap_augmented",
+            "full": "fmnist_0.0_full____2020_08_24_10_20_11_972145_umap_augmented",
+        },
     },
 }
 
@@ -113,9 +175,13 @@ def load_dataset(dataset, labels_per_class):
         num_classes = 10
         dims = (32, 32, 3)
     elif dataset == "mnist":
-        pass
+        X_train, X_test, X_valid, Y_train, Y_test, Y_valid = load_MNIST(flatten=False)
+        num_classes = 10
+        dims = (28, 28, 1)
     elif dataset == "fmnist":
-        pass
+        X_train, X_test, X_valid, Y_train, Y_test, Y_valid = load_FMNIST(flatten=False)
+        num_classes = 10
+        dims = (28, 28, 1)
 
     # get labeled data
     if labels_per_class == "full":
@@ -151,13 +217,135 @@ def load_architecture(dataset, n_latent_dims, extend_embedder=True):
     if dataset == "cifar10":
         return load_cifar10_CNN13(n_latent_dims, extend_embedder)
     elif dataset == "mnist":
-        pass
-    elif data == "fmnist":
-        pass
+        return load_mnist_CNN(n_latent_dims, extend_embedder)
+    elif dataset == "fmnist":
+        return load_mnist_CNN(n_latent_dims, extend_embedder)
 
 
 from tensorflow.keras import datasets, layers, models
 from tensorflow_addons.layers import WeightNormalization
+
+
+def load_mnist_CNN(
+    n_latent_dims,
+    extend_embedder=True,
+    dims=(28, 28, 1),
+    num_classes=10,
+    lr_alpha=0.1,
+    dropout_rate=0.5,
+):
+    """
+    references for network:
+        - https://github.com/benathi/fastswa-semi-sup/blob/master/mean_teacher/architectures.py
+        - https://github.com/vikasverma1077/ICT/blob/master/networks/lenet.py
+        - https://github.com/brain-research/realistic-ssl-evaluation
+    """
+
+    def conv_block(filts, name, kernel_size=(3, 3), padding="same", **kwargs):
+        return WeightNormalization(
+            layers.Conv2D(
+                filts, kernel_size, activation=None, padding=padding, **kwargs
+            ),
+            name="conv" + name,
+        )
+
+    encoder = models.Sequential()
+    encoder.add(tf.keras.Input(shape=dims))
+    ### conv1a
+    name = "1a"
+    encoder.add(conv_block(name=name, filts=128, kernel_size=(3, 3), padding="same"))
+    encoder.add(layers.BatchNormalization(name="bn" + name))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelu" + name))
+
+    ### conv1b
+    name = "1b"
+    encoder.add(conv_block(name=name, filts=128, kernel_size=(3, 3), padding="same"))
+    encoder.add(layers.BatchNormalization(name="bn" + name))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelu" + name))
+
+    ### conv1c
+    name = "1c"
+    encoder.add(conv_block(name=name, filts=128, kernel_size=(3, 3), padding="same"))
+    encoder.add(layers.BatchNormalization(name="bn" + name))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelu" + name))
+
+    # max pooling
+    encoder.add(
+        layers.MaxPooling2D(pool_size=(2, 2), strides=2, padding="valid", name="mp1")
+    )
+    # dropout
+    encoder.add(layers.Dropout(dropout_rate, name="drop1"))
+
+    ### conv2a
+    name = "2a"
+    encoder.add(conv_block(name=name, filts=256, kernel_size=(3, 3), padding="same"))
+    encoder.add(layers.BatchNormalization(name="bn" + name))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha))
+
+    ### conv2b
+    name = "2b"
+    encoder.add(conv_block(name=name, filts=256, kernel_size=(3, 3), padding="same"))
+    encoder.add(layers.BatchNormalization(name="bn" + name))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelu" + name))
+
+    ### conv2c
+    name = "2c"
+    encoder.add(conv_block(name=name, filts=256, kernel_size=(3, 3), padding="same"))
+    encoder.add(layers.BatchNormalization(name="bn" + name))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelu" + name))
+
+    # max pooling
+    encoder.add(
+        layers.MaxPooling2D(pool_size=(2, 2), strides=2, padding="valid", name="mp2")
+    )
+    # dropout
+    encoder.add(layers.Dropout(dropout_rate, name="drop2"))
+
+    ### conv3a
+    name = "3a"
+    encoder.add(conv_block(name=name, filts=512, kernel_size=(3, 3), padding="valid"))
+    encoder.add(layers.BatchNormalization(name="bn" + name))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelu" + name))
+
+    ### conv3b
+    name = "3b"
+    encoder.add(conv_block(name=name, filts=256, kernel_size=(1, 1), padding="valid"))
+    encoder.add(layers.BatchNormalization(name="bn" + name))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelu" + name))
+
+    ### conv3c
+    name = "3c"
+    encoder.add(conv_block(name=name, filts=128, kernel_size=(1, 1), padding="valid"))
+    encoder.add(layers.BatchNormalization(name="bn" + name))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelu" + name))
+
+    # max pooling
+    encoder.add(layers.AveragePooling2D(pool_size=(3, 3), strides=2, padding="valid"))
+    encoder.add(layers.Flatten())
+    encoder.add(layers.Dense(256, activation=None, name="z"))
+
+    classifier = models.Sequential()
+    classifier.add(tf.keras.Input(shape=(256)))
+    classifier.add(WeightNormalization(layers.Dense(256, activation=None)))
+    classifier.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc1"))
+    classifier.add(WeightNormalization(layers.Dense(256, activation=None)))
+    classifier.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc2"))
+    classifier.add(
+        WeightNormalization(layers.Dense(num_classes, activation=None), name="y_")
+    )
+
+    embedder = models.Sequential()
+    embedder.add(tf.keras.Input(shape=(256)))
+    if extend_embedder:
+        embedder.add(WeightNormalization(layers.Dense(256, activation=None)))
+        embedder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc1"))
+        embedder.add(WeightNormalization(layers.Dense(256, activation=None)))
+        embedder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc2"))
+    embedder.add(
+        WeightNormalization(layers.Dense(n_latent_dims, activation=None), name="z_")
+    )
+
+    return encoder, classifier, embedder
 
 
 def load_cifar10_CNN13(
@@ -485,8 +673,10 @@ def get_augment(dims):
 
 
 def build_labeled_iterator(X_labeled, Y_labeled_one_hot, augmented, dims):
-    def aug_labeled(image, label):
-        return get_augment(dims)(image), label
+    if augmented:
+
+        def aug_labeled(image, label):
+            return get_augment(dims)(image), label
 
     labeled_dataset = tf.data.Dataset.from_tensor_slices((X_labeled, Y_labeled_one_hot))
     labeled_dataset = labeled_dataset.shuffle(len(X_labeled))
