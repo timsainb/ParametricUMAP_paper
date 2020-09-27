@@ -3,6 +3,7 @@ import pathlib2
 import os
 from datetime import datetime
 import numpy as np
+import matplotlib.pyplot as plt
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_DIR / "data"
@@ -41,3 +42,41 @@ def most_recent_subdirectory(dataset_loc):
         datetime.strptime(i.name, "%Y-%m-%d_%H-%M-%S") for i in subdir_list
     ]
     return subdir_list[np.argsort(directory_dates)[-1]]
+
+
+def save_fig(
+    loc,
+    dpi=300,
+    save_pdf=False,
+    save_svg=False,
+    save_png=False,
+    save_jpg=True,
+    pad_inches=0.0,
+):
+    if save_pdf:
+        plt.savefig(
+            str(loc) + ".pdf", dpi=dpi, bbox_inches="tight", pad_inches=pad_inches
+        )
+    if save_svg:
+        plt.savefig(
+            str(loc) + ".svg",
+            dpi=dpi,
+            bbox_inches="tight",
+            pad_inches=pad_inches,
+            transparent=True,
+        )
+    if save_png:
+        plt.savefig(
+            str(loc) + ".png",
+            dpi=dpi,
+            bbox_inches="tight",
+            pad_inches=pad_inches,
+            transparent=True,
+        )
+    if save_jpg:
+        plt.savefig(
+            str(loc) + ".jpg",
+            dpi=int(dpi / 2),
+            bbox_inches="tight",
+            pad_inches=pad_inches,
+        )
