@@ -40,7 +40,7 @@ pretrained_networks = {
             1024: "cifar10_1024____2020_08_17_15_08_08_912644_baseline",  # 0.7864 # 84
             "full": "cifar10_full____2020_08_17_15_08_15_778694_baseline",  # 0.8923 # 90
         },
-        "umap_augmented": {
+        "umap_augmented_learned": {
             4: "cifar10_0.0_4____2020_08_19_00_40_15_425455_umap_augmented",  #
             16: "cifar10_0.0_16____2020_08_19_00_40_13_037112_umap_augmented",
             64: "cifar10_0.0_64____2020_08_19_00_40_13_032397_umap_augmented",
@@ -64,7 +64,7 @@ pretrained_networks = {
             1024: "cifar10_0.8_1024____2020_08_19_23_00_59_934762_umap_augmented",
             "full": "cifar10_0.8_full____2020_08_19_23_01_03_044142_umap_augmented",
         },
-        "umap_euclidean_augmented_no_thresh": {
+        "umap_euclidean_augmented": {  # umap_euclidean_augmented_no_thresh
             4: "cifar10_0.0_4____2020_08_20_10_49_23_565699_umap_augmented",  #
             16: "cifar10_0.0_16____2020_08_20_10_52_39_313456_umap_augmented",
             64: "cifar10_0.0_64____2020_08_20_10_52_40_783860_umap_augmented",
@@ -106,14 +106,22 @@ pretrained_networks = {
             1024: "mnist_1024____2020_08_23_14_12_00_839816_baseline",
             "full": "mnist_full____2020_08_23_14_02_35_917340_baseline",
         },
-        "augmented": {4: "", 16: "", 64: "", 256: "", 1024: "", "full": ""},
+        "augmented": {
+            4: "mnist_4____2020_08_26_22_34_26_172040_baseline_augmented",
+            16: "mnist_16____2020_08_26_22_36_42_823740_baseline_augmented",
+            64: "mnist_64____2020_08_26_22_37_03_013806_baseline_augmented",
+            256: "mnist_256____2020_08_26_22_38_00_695064_baseline_augmented",
+            1024: "mnist_1024____2020_08_26_22_38_22_879325_baseline_augmented",
+            "full": "mnist_full____2020_08_26_22_34_57_589833_baseline_augmented",
+        },
         "umap_euclidean": {
             4: "mnist_0.0_4____2020_08_23_19_39_30_768509_umap_augmented",
             16: "mnist_0.0_16____2020_08_23_19_27_31_722774_umap_augmented",
             64: "mnist_0.0_64____2020_08_23_18_32_38_592348_umap_augmented",
             256: "mnist_0.0_256____2020_08_23_19_39_57_288829_umap_augmented",
             1024: "mnist_0.0_1024____2020_08_23_19_44_01_747431_umap_augmented",
-            "full": "mnist_0.0_full____2020_08_23_23_07_06_598185_umap_augmented",
+            # "full": "mnist_0.0_full____2020_08_23_23_07_06_598185_umap_augmented",
+            "full": "mnist_0.0_full____2020_08_23_23_11_15_364937_umap_augmented",
         },
         "umap_learned": {
             4: "mnist_0.0_4____2020_08_24_13_43_38_697668_umap_augmented",
@@ -122,6 +130,22 @@ pretrained_networks = {
             256: "mnist_0.0_256____2020_08_24_16_53_11_404946_umap_augmented",
             1024: "mnist_0.0_1024____2020_08_24_16_53_15_376183_umap_augmented",
             "full": "mnist_0.0_full____2020_08_24_13_43_38_497837_umap_augmented",
+        },
+        "umap_euclidean_augmented": {
+            4: "mnist_0.0_4____2020_08_28_01_19_15_530909_umap_augmented",
+            16: "mnist_0.0_16____2020_08_28_01_22_00_266602_umap_augmented",
+            64: "mnist_0.0_64____2020_08_28_01_22_22_251679_umap_augmented",
+            256: "mnist_0.0_256____2020_08_28_01_22_37_322969_umap_augmented",
+            1024: "mnist_0.0_1024____2020_08_28_10_21_10_652408_umap_augmented",
+            "full": "mnist_0.0_full____2020_08_28_10_21_10_309737_umap_augmented",
+        },
+        "umap_augmented_learned": {
+            4: "mnist_0.0_4____2020_08_28_22_36_55_334573_umap_augmented",
+            16: "mnist_0.0_16____2020_08_28_22_36_36_245588_umap_augmented",
+            64: "mnist_0.0_64____2020_08_28_10_58_23_001653_umap_augmented",
+            256: "mnist_0.0_256____2020_08_28_10_58_44_499275_umap_augmented",
+            1024: "mnist_0.0_1024____2020_08_28_11_00_20_544491_umap_augmented",
+            "full": "mnist_0.0_full____2020_08_28_11_00_23_221668_umap_augmented",
         },
     },
     "fmnist": {
@@ -133,7 +157,31 @@ pretrained_networks = {
             1024: "fmnist_1024____2020_08_23_14_13_39_538728_baseline",
             "full": "fmnist_full____2020_08_23_14_06_13_546999_baseline",
         },
-        "augmented": {4: "", 16: "", 64: "", 256: "", 1024: "", "full": ""},
+        "augmented": {
+            4: "fmnist_4____2020_08_25_17_18_57_856259_baseline_augmented",
+            16: "fmnist_16____2020_08_25_17_19_58_221943_baseline_augmented",
+            64: "fmnist_64____2020_08_25_17_20_33_647542_baseline_augmented",
+            256: "fmnist_256____2020_08_25_17_20_55_354044_baseline_augmented",
+            1024: "fmnist_1024____2020_08_25_17_21_21_486291_baseline_augmented",
+            "full": "fmnist_full____2020_08_25_17_21_42_014099_baseline_augmented",
+        },
+        "placeholder": {4: "", 16: "", 64: "", 256: "", 1024: "", "full": ""},
+        "umap_over_z": {
+            4: "fmnist_0.0_4____2020_08_27_11_30_38_602000_umap_augmented",
+            16: "fmnist_0.0_16____2020_08_27_11_30_41_024752_umap_augmented",
+            64: "fmnist_0.0_64____2020_08_27_11_46_44_906423_umap_augmented",
+            256: "fmnist_0.0_256____2020_08_27_11_47_02_912498_umap_augmented",
+            1024: "",
+            "full": "",
+        },
+        "umap_augmented_learned": {
+            4: "fmnist_0.0_4____2020_08_25_22_52_13_661088_umap_augmented",
+            16: "fmnist_0.0_16____2020_08_25_22_53_12_075808_umap_augmented",
+            64: "fmnist_0.0_64____2020_08_25_22_58_52_822672_umap_augmented",
+            256: "fmnist_0.0_256____2020_08_25_22_59_00_936495_umap_augmented",
+            1024: "fmnist_0.0_1024____2020_08_25_22_59_15_453823_umap_augmented",
+            "full": "fmnist_0.0_full____2020_08_25_22_59_11_829778_umap_augmented",
+        },
         "umap_euclidean": {
             4: "fmnist_0.0_4____2020_08_23_18_48_03_409056_umap_augmented",
             16: "fmnist_0.0_16____2020_08_23_21_25_30_890380_umap_augmented",
@@ -149,6 +197,22 @@ pretrained_networks = {
             256: "fmnist_0.0_256____2020_08_24_10_19_51_978912_umap_augmented",
             1024: "fmnist_0.0_1024____2020_08_24_10_20_06_630456_umap_augmented",
             "full": "fmnist_0.0_full____2020_08_24_10_20_11_972145_umap_augmented",
+        },
+        "umap_intersection": {
+            4: "fmnist_0.0_4____2020_08_24_23_43_25_574078_umap_augmented",
+            16: "fmnist_0.0_16____2020_08_24_23_43_35_567328_umap_augmented",
+            64: "fmnist_0.0_64____2020_08_24_23_43_35_567450_umap_augmented",
+            256: "fmnist_0.0_256____2020_08_24_23_43_45_557361_umap_augmented",
+            1024: "fmnist_0.0_1024____2020_08_24_23_43_45_643845_umap_augmented",
+            "full": "fmnist_0.0_full____2020_08_24_23_48_54_578235_umap_augmented",
+        },
+        "umap_euclidean_augmented": {
+            4: "fmnist_0.0_4____2020_08_26_11_16_46_042019_umap_augmented",
+            16: "fmnist_0.0_16____2020_08_26_13_30_25_749568_umap_augmented",
+            64: "fmnist_0.0_64____2020_08_26_13_30_25_380156_umap_augmented",
+            256: "fmnist_0.0_256____2020_08_26_11_21_26_903869_umap_augmented",
+            1024: "fmnist_0.0_1024____2020_08_26_11_21_26_883542_umap_augmented",
+            "full": "fmnist_0.0_full____2020_08_26_13_30_25_074505_umap_augmented",
         },
     },
 }
@@ -646,9 +710,9 @@ def build_model(
 import tensorflow_addons as tfa
 
 
-def get_augment(dims):
+def get_augment_cifar(dims):
     def augment(image):
-        image = tf.squeeze(image)  # Add 6 pixels of padding
+        # image = tf.squeeze(image)  # Add 6 pixels of padding
         image = tf.image.resize_with_crop_or_pad(
             image, dims[0] + 6, dims[1] + 6
         )  # crop 6 pixels
@@ -672,11 +736,244 @@ def get_augment(dims):
     return augment
 
 
-def build_labeled_iterator(X_labeled, Y_labeled_one_hot, augmented, dims):
-    if augmented:
+def get_augment_fmnist(dims):
+    def augment(image):
+        def random_stretch(image):
+            # stretch
+            randint_hor = tf.random.uniform((2,), minval=0, maxval=8, dtype=tf.int32)[0]
+            randint_vert = tf.random.uniform((2,), minval=0, maxval=8, dtype=tf.int32)[
+                0
+            ]
+            image = tf.image.resize(
+                image, (dims[0] + randint_vert * 2, dims[1] + randint_hor * 2)
+            )
+            # image = tf.image.crop_to_bounding_box(image, randint_vert,randint_hor,28,28)
+            image = tf.image.resize_with_pad(image, dims[0], dims[1])
 
-        def aug_labeled(image, label):
-            return get_augment(dims)(image), label
+            image = tf.image.resize_with_crop_or_pad(
+                image, dims[0] + 3, dims[1] + 3
+            )  # crop 6 pixels
+            image = tf.image.random_crop(image, size=dims)
+
+            return image
+
+        random_switch = tf.cast(
+            tf.random.uniform((1,), minval=0, maxval=2, dtype=tf.int32)[0], tf.bool
+        )
+        image = tf.cond(random_switch, lambda: random_stretch(image), lambda: image)
+
+        def rotate_image(image):
+            image = tfa.image.rotate(
+                image,
+                tf.squeeze(tf.random.uniform(shape=(1, 1), minval=-0.25, maxval=0.25)),
+                interpolation="BILINEAR",
+            )
+            return image
+
+        random_switch = tf.cast(
+            tf.random.uniform((1,), minval=0, maxval=2, dtype=tf.int32)[0], tf.bool
+        )
+        image = tf.cond(random_switch, lambda: rotate_image(image), lambda: image)
+
+        image = tf.image.random_flip_left_right(image)
+        image = tf.clip_by_value(image, 0, 1)
+
+        def norm(x):
+            return x - tf.reduce_min(x)  # /(tf.reduce_max(x) - tf.reduce_min(x))
+
+        def adjust_hue_brightness(image):
+            image = tf.image.random_brightness(
+                image, max_delta=0.5
+            )  # Random brightness
+            image = tf.image.random_contrast(image, lower=0.5, upper=1.75)
+            image = norm(image)
+            return image
+
+        random_switch = tf.cast(
+            tf.random.uniform((1,), minval=0, maxval=2, dtype=tf.int32)[0], tf.bool
+        )
+        image = tf.cond(
+            random_switch, lambda: adjust_hue_brightness(image), lambda: image
+        )
+
+        def cutout(image):
+            image = tfa.image.random_cutout(
+                tf.expand_dims(image, 0), (8, 8), constant_values=0.5
+            )[0]
+            image = tf.clip_by_value(image, 0, 1)
+            return image
+
+        random_switch = tf.cast(
+            tf.random.uniform((1,), minval=0, maxval=2, dtype=tf.int32)[0], tf.bool
+        )
+        image = tf.cond(random_switch, lambda: cutout(image), lambda: image)
+
+        image = tf.clip_by_value(image, 0, 1)
+        return image
+
+    return augment
+
+
+def get_augment_mnist(
+    dims=(28, 28, 1),
+    augment_probability=0.1,
+    brightness_range=[0.5, 1],
+    contrast_range=[0.5, 2],
+    cutout_range=[0, 0.75],
+    rescale_range=[0.75, 1],
+    rescale_range_x_range=0.9,
+    rescale_range_y_range=0.9,
+    rotate_range=[-0.5, 0.5],
+    shear_x_range=[-0.3, 0.3],
+    shear_y_range=[-0.3, 0.3],
+    translate_x_range=0.2,
+    translate_y_range=0.2,
+):
+    def augment(image):
+        def aug(image):
+            # Brightness 0-1
+            brightness_factor = tf.random.uniform(
+                (1,),
+                minval=brightness_range[0],
+                maxval=brightness_range[1],
+                dtype=tf.float32,
+            )[0]
+            image = brightness(image, brightness_factor)
+
+            # rescale 0.5-1
+            rescale_factor = tf.random.uniform(
+                (1,), minval=rescale_range[0], maxval=rescale_range[1], dtype=tf.float32
+            )[0]
+            image = tf.image.random_crop(
+                image, [dims[0] * rescale_factor, dims[1] * rescale_factor, dims[2]]
+            )
+            image = tf.image.resize(image, [dims[0], dims[1]])
+
+            # sqeeze x or y
+            randint_hor = tf.random.uniform(
+                (2,),
+                minval=0,
+                maxval=tf.cast(rescale_range_x_range * dims[0], tf.int32),
+                dtype=tf.int32,
+            )[0]
+            randint_vert = tf.random.uniform(
+                (2,),
+                minval=0,
+                maxval=tf.cast(rescale_range_y_range * dims[1], tf.int32),
+                dtype=tf.int32,
+            )[0]
+            image = tf.image.resize(
+                image, (dims[0] + randint_vert * 2, dims[1] + randint_hor * 2)
+            )
+
+            image = tf.image.resize_with_pad(image, dims[0], dims[1])
+
+            image = tf.image.resize_with_crop_or_pad(
+                image, dims[0] + 3, dims[1] + 3
+            )  # crop 6 pixels
+            image = tf.image.random_crop(image, size=dims)
+
+            # rotate -45 45
+            rotate_factor = tf.random.uniform(
+                (1,), minval=rotate_range[0], maxval=rotate_range[1], dtype=tf.float32,
+            )[0]
+            image = tfa.image.rotate(image, rotate_factor, interpolation="BILINEAR",)
+
+            # shear_x -0.3, 3
+            shear_x_factor = tf.random.uniform(
+                (1,), minval=shear_x_range[0], maxval=shear_x_range[1], dtype=tf.float32
+            )[0]
+
+            img = tf.repeat(tf.cast(image * 255, tf.uint8), 3, axis=2)
+            image = (
+                tf.cast(
+                    tfa.image.shear_x(img, shear_x_factor, replace=0)[:, :, :1],
+                    tf.float32,
+                )
+                / 255
+            )
+
+            # shear_y -0.3, 3
+            shear_y_factor = tf.random.uniform(
+                (1,), minval=shear_x_range[0], maxval=shear_y_range[1], dtype=tf.float32
+            )[0]
+            img = tf.repeat(tf.cast(image * 255, tf.uint8), 3, axis=2)
+            image = (
+                tf.cast(
+                    tfa.image.shear_y(img, shear_y_factor, replace=0)[:, :, :1],
+                    tf.float32,
+                )
+                / 255.0
+            )
+            # print(image.shape)
+            # translate x -0.3, 0.3
+            translate_x_factor = tf.random.uniform(
+                (1,), minval=0, maxval=translate_x_range * 2, dtype=tf.float32
+            )[0]
+            # translate y -0.3, 0.3
+            translate_y_factor = tf.random.uniform(
+                (1,), minval=0, maxval=translate_y_range * 2, dtype=tf.float32
+            )[0]
+
+            image = tf.image.resize_with_crop_or_pad(
+                image,
+                dims[0] + tf.cast(translate_x_factor * dims[0], tf.int32),
+                dims[1] + tf.cast(translate_y_factor * dims[1], tf.int32),
+            )  # crop 6 pixels
+            image = tf.image.random_crop(image, size=dims)
+
+            # contrast 0-1
+            contrast_factor = tf.random.uniform(
+                (1,),
+                minval=contrast_range[0],
+                maxval=contrast_range[1],
+                dtype=tf.float32,
+            )[0]
+            image = tf.image.adjust_contrast(image, contrast_factor)
+            image = image - tf.reduce_min(image)
+
+            # cutout 0-0.5
+            cutout_factor = tf.random.uniform(
+                (1,), minval=cutout_range[0], maxval=cutout_range[1], dtype=tf.float32
+            )[0]
+            image = cutout(image, tf.cast(cutout_factor * dims[0], tf.int32))
+
+            image = tf.clip_by_value(image, 0.0, 1.0)
+
+            return image
+
+        random_switch = tf.math.equal(
+            tf.random.uniform(
+                (),
+                minval=0,
+                maxval=tf.cast(1 + 1 / augment_probability, tf.int32),
+                dtype=tf.int32,
+            ),
+            1,
+        )
+        return tf.cond(random_switch, lambda: aug(image), lambda: image)
+
+    return augment
+
+
+def build_labeled_iterator(
+    X_labeled, Y_labeled_one_hot, augmented, dims, dataset="cifar10"
+):
+    if augmented:
+        if dataset == "cifar10":
+
+            def aug_labeled(image, label):
+                return get_augment_cifar(dims)(image), label
+
+        elif dataset == "fmnist":
+
+            def aug_labeled(image, label):
+                return get_augment_fmnist(dims)(image), label
+
+        elif dataset == "mnist":
+
+            def aug_labeled(image, label):
+                return get_augment_mnist(dims)(image), label
 
     labeled_dataset = tf.data.Dataset.from_tensor_slices((X_labeled, Y_labeled_one_hot))
     labeled_dataset = labeled_dataset.shuffle(len(X_labeled))
@@ -749,7 +1046,7 @@ def build_fuzzy_simplicial_set(X, y=None, n_neighbors=15):
 
 
 def prepare_edge_dataset(
-    data,
+    umap_graph,
     augmented,
     batch_size,
     labeled_dataset,
@@ -759,6 +1056,7 @@ def prepare_edge_dataset(
     n_neighbors=15,
     n_epochs=200,
     max_sample_repeats_per_epoch=25,
+    dataset="cifar10",
 ):
     def gather_X(edge_to, edge_from):
         return (tf.gather(X_train_hc, edge_to), tf.gather(X_train_hc, edge_from)), 0
@@ -766,14 +1064,19 @@ def prepare_edge_dataset(
     def aug_edge(images, edge_weight):
         return (augment(images[0]), augment(images[1])), edge_weight
 
-    augment = get_augment(dims)
+    if dataset == "cifar10":
+        augment = get_augment_cifar(dims)
+    elif dataset == "fmnist":
+        augment = get_augment_fmnist(dims)
+    elif dataset == "mnist":
+        augment = get_augment_mnist(dims)
 
-    # flatten if needed
+    """# flatten if needed
     if len(np.shape(data)) > 2:
         data = data.reshape((len(data), np.product(np.shape(data)[1:])))
 
     # compute umap graph
-    umap_graph = build_fuzzy_simplicial_set(data, y=Y_masked, n_neighbors=n_neighbors,)
+    umap_graph = build_fuzzy_simplicial_set(data, y=Y_masked, n_neighbors=n_neighbors,)"""
 
     # get graph elements
     graph, epochs_per_sample, head, tail, weight, n_vertices = get_graph_elements(
@@ -830,6 +1133,10 @@ def get_edge_dataset(
     labeled_dataset,
     dims,
     learned_metric,
+    dataset="cifar10",
+    intersection=False,
+    n_neighbors=15,
+    use_last_layer=True,
 ):
 
     if learned_metric:
@@ -843,8 +1150,11 @@ def get_edge_dataset(
         # get encoder activations for X_train
         enc_z = encoder.predict(X_train)
 
-        # get last layer activations for X_train
-        last_layer_z = last_layer_class.predict(enc_z)
+        if use_last_layer:
+            # get last layer activations for X_train
+            last_layer_z = last_layer_class.predict(enc_z)
+        else:
+            last_layer_z = enc_z
 
         # get predictions for X_train
         train_predictions = classifier.predict(
@@ -861,26 +1171,62 @@ def get_edge_dataset(
         high_confidence_mask = confidence > confidence_threshold
         X_train_hc = X_train[high_confidence_mask]
 
+        data = last_layer_z[high_confidence_mask]
+        # flatten if needed
+        if len(np.shape(data)) > 2:
+            data = data.reshape((len(data), np.product(np.shape(data)[1:])))
+
+        # compute umap graph
+        umap_graph = build_fuzzy_simplicial_set(
+            data, y=Y_masked, n_neighbors=n_neighbors,
+        )
+        if intersection:
+            data_x = flatten(X_train)
+            # flatten if needed
+            if len(np.shape(data_x)) > 2:
+                data_x = data_x.reshape((len(data_x), np.product(np.shape(data_x)[1:])))
+
+            # compute umap graph of x
+            umap_graph_x = build_fuzzy_simplicial_set(
+                data_x, y=Y_masked, n_neighbors=n_neighbors,
+            )
+
+            # compute intersection
+            # umap_graph = umap_graph + umap_graph_x / 2 #
+            umap_graph = umap_graph + umap_graph_x - umap_graph * umap_graph_x
+
         edge_dataset = prepare_edge_dataset(
-            last_layer_z[high_confidence_mask],
+            umap_graph,
             augmented,
             batch_size,
             labeled_dataset,
             X_train_hc,
             Y_masked,
             dims,
+            dataset=dataset,
         )
 
     else:
 
+        data = flatten(X_train)
+        # flatten if needed
+        if len(np.shape(data)) > 2:
+            data = data.reshape((len(data), np.product(np.shape(data)[1:])))
+
+        # compute umap graph of x
+        umap_graph_x = build_fuzzy_simplicial_set(
+            data, y=Y_masked, n_neighbors=n_neighbors,
+        )
+
         edge_dataset = prepare_edge_dataset(
-            flatten(X_train),
+            umap_graph_x,
             augmented,
             batch_size,
             labeled_dataset,
             X_train,
             Y_masked,
             dims,
+            dataset=dataset,
         )
 
     return edge_dataset
@@ -951,3 +1297,126 @@ def zip_datasets(labeled_dataset, edge_dataset, batch_size):
     )
     zipped_ds = zipped_ds.batch(batch_size, drop_remainder=True)
     return zipped_ds
+
+
+# Taken from https://github.com/tanzhenyu/image_augmentation/blob/master/image_augmentation/image/image_ops.py
+IMAGE_DTYPES = [tf.uint8, tf.float32, tf.float16, tf.float64]
+
+
+@tf.function
+def blend(image1, image2, factor, name=None):
+    """Blends an image with another using `factor`.
+    Args:
+        image1: An int or float tensor of shape `[height, width, num_channels]`.
+        image2: An int or float tensor of shape `[height, width, num_channels]`.
+        factor: A 0-D float tensor or single floating point value depicting
+            a weight above 0.0 for combining the example_images.
+        name: An optional string for name of the operation.
+    Returns:
+        A tensor with same shape and type as that of `image1` and `image2`.
+    """
+    _check_image_dtype(image1)
+    _check_image_dtype(image2)
+    assert (
+        image1.dtype == image2.dtype
+    ), "image1 type should exactly match type of image2"
+
+    if factor == 0.0:
+        return image1
+    elif factor == 1.0:
+        return image2
+    else:
+        with tf.name_scope(name or "blend"):
+            orig_dtype = image2.dtype
+
+            image1, image2 = (
+                tf.image.convert_image_dtype(image1, tf.float32),
+                tf.image.convert_image_dtype(image2, tf.float32),
+            )
+            scaled_diff = (image2 - image1) * factor
+
+            blended_image = image1 + scaled_diff
+
+            blended_image = tf.image.convert_image_dtype(
+                blended_image, orig_dtype, saturate=True
+            )
+            return blended_image
+
+
+@tf.function
+def brightness(image, magnitude, name=None):
+    """Adjusts the `magnitude` of brightness of an `image`.
+    Args:
+        image: An int or float tensor of shape `[height, width, num_channels]`.
+        magnitude: A 0-D float tensor or single floating point value above 0.0.
+        name: An optional string for name of the operation.
+    Returns:
+        A tensor with same shape and type as that of `image`.
+    """
+    _check_image_dtype(image)
+
+    with tf.name_scope(name or "brightness"):
+        dark = tf.zeros_like(image)
+        bright_image = blend(dark, image, magnitude)
+        return bright_image
+
+
+@tf.function
+def cutout(image, size=16, color=None, name=None):
+    """This is an implementation of Cutout as described in "Improved
+    Regularization of Convolutional Neural Networks with Cutout" by
+    DeVries & Taylor (https://arxiv.org/abs/1708.04552).
+    It applies a random square patch of specified `size` over an `image`
+    and by replacing those pixels with value of `color`.
+    Args:
+        image: An int or float tensor of shape `[height, width, num_channels]`.
+        size: A 0-D int tensor or single int value that is divisible by 2.
+        color: A single pixel value (grayscale) or tuple of 3 values (RGB),
+            in case a single value is used for RGB image the value is tiled.
+            Gray color (128) is used by default.
+        name: An optional string for name of the operation.
+    Returns:
+        A tensor with same shape and type as that of `image`.
+    """
+    _check_image_dtype(image)
+
+    with tf.name_scope(name or "cutout"):
+        image_shape = tf.shape(image)
+        height, width, channels = image_shape[0], image_shape[1], image_shape[2]
+
+        loc_x = tf.random.uniform((), 0, width, tf.int32)
+        loc_y = tf.random.uniform((), 0, height, tf.int32)
+
+        ly, lx = tf.maximum(0, loc_y - size // 2), tf.maximum(0, loc_x - size // 2)
+        uy, ux = (
+            tf.minimum(height, loc_y + size // 2),
+            tf.minimum(width, loc_x + size // 2),
+        )
+
+        gray = tf.constant(128)
+        if color is None:
+            if image.dtype == tf.uint8:
+                color = tf.repeat(gray, channels)
+            else:
+                color = tf.repeat(tf.cast(gray, tf.float32) / 255.0, channels)
+        else:
+            color = tf.convert_to_tensor(color)
+        color = tf.cast(color, image.dtype)
+
+        cut = tf.ones((uy - ly, ux - lx, channels), image.dtype)
+
+        top = image[0:ly, 0:width]
+        between = tf.concat(
+            [image[ly:uy, 0:lx], cut * color, image[ly:uy, ux:width]], axis=1
+        )
+        bottom = image[uy:height, 0:width]
+
+        cutout_image = tf.concat([top, between, bottom], axis=0)
+        return cutout_image
+
+
+def _check_image_dtype(image):
+    assert image.dtype in IMAGE_DTYPES, (
+        "image with " + str(image.dtype) + " is not supported for this operation"
+    )
+
