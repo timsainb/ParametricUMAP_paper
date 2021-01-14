@@ -1,28 +1,17 @@
-from tfumap.load_datasets import load_CIFAR10, load_MNIST, load_FMNIST, mask_labels
+from tfumap.load_datasets import (
+    load_CIFAR10,
+    load_MNIST,
+    load_FMNIST,
+    load_CASSINS,
+    load_MACOSKO,
+    mask_labels,
+)
 import tensorflow as tf
 from tfumap.paths import MODEL_DIR
 import numpy as np
 
 
 pretrained_networks = {
-    "cifar10_old": {
-        "augmented": {
-            4: "cifar10_4____2020_08_09_22_16_45_780732_baseline_augmented",  # 15
-            16: "cifar10_16____2020_08_09_22_43_34_001017_baseline_augmented",  # 29
-            64: "cifar10_64____2020_08_09_22_16_13_299376_baseline_augmented",  # 47
-            256: "cifar10_256____2020_08_09_22_05_58_228942_baseline_augmented",  # 71
-            1024: "cifar10_1024____2020_08_09_23_20_57_619002_baseline_augmented",  # 84
-            "full": "cifar10_full____2020_08_09_22_03_51_910408_baseline_augmented",  # ~91.5
-        },
-        "not_augmented": {
-            4: "cifar10_4____2020_08_09_22_13_28_904367_baseline",  # 0.1542
-            16: "cifar10_16____2020_08_09_21_58_11_099843_baseline",  # 0.2335
-            64: "cifar10_64____2020_08_09_22_14_33_994011_baseline",  # 0.3430
-            256: "cifar10_128____2020_08_09_21_58_00_869329_baseline",  # 0.4693
-            1024: "cifar10_1024____2020_08_09_22_14_06_923244_baseline",  # 0.7864
-            "full": "cifar10_full____2020_08_09_21_54_03_152503_baseline",  # 0.8923
-        },
-    },
     "cifar10": {
         "augmented": {
             4: "cifar10_4____2020_08_11_19_25_58_939055_baseline_augmented",  # 15 # 26
@@ -215,6 +204,42 @@ pretrained_networks = {
             "full": "fmnist_0.0_full____2020_08_26_13_30_25_074505_umap_augmented",
         },
     },
+    "cassins": {
+        "not_augmented": {
+            4: "cassins_4____2020_11_11_17_40_13_549097_baseline",
+            16: "cassins_16____2020_11_11_17_56_52_163428_baseline",
+            64: "cassins_64____2020_11_11_17_56_57_053996_baseline",
+            256: "cassins_256____2020_11_11_18_03_06_161985_baseline",
+            1024: "cassins_1024____2020_11_11_17_59_57_592404_baseline",
+            "full": "cassins_full____2020_11_11_17_40_24_970030_baseline",
+        },
+        "umap_euclidean": {
+            4: "cassins_0.0_4____2020_11_11_19_13_44_404196_umap_augmented",
+            16: "cassins_0.0_16____2020_11_11_19_15_56_651149_umap_augmented",
+            64: "cassins_0.0_64____2020_11_11_19_16_36_796314_umap_augmented",
+            256: "cassins_0.0_256____2020_11_11_19_17_09_334810_umap_augmented",
+            1024: "cassins_0.0_1024____2020_11_11_19_17_44_566481_umap_augmented",
+            "full": "cassins_0.0_full____2020_11_11_19_18_52_525170_umap_augmented",
+        },
+    },
+    "macosko2015": {
+        "not_augmented": {
+            4: "macosko2015_4____2020_11_11_20_08_20_373036_baseline",
+            16: "macosko2015_16____2020_11_11_19_41_43_082763_baseline",
+            64: "macosko2015_64____2020_11_11_19_46_03_845826_baseline",
+            256: "macosko2015_256____2020_11_11_19_46_22_012555_baseline",
+            1024: "macosko2015_1024____2020_11_11_19_46_40_990058_baseline",
+            "full": "macosko2015_full____2020_11_11_19_47_00_582248_baseline",
+        },
+        "umap_euclidean": {
+            4: "macosko2015_0.0_4____2020_11_11_21_10_18_248580_umap_augmented",
+            16: "macosko2015_0.0_16____2020_11_11_20_07_36_383558_umap_augmented",
+            64: "macosko2015_0.0_64____2020_11_11_20_12_03_040798_umap_augmented",
+            256: "macosko2015_0.0_256____2020_11_11_20_13_05_560591_umap_augmented",
+            1024: "macosko2015_0.0_1024____2020_11_11_20_13_34_650588_umap_augmented",
+            "full": "macosko2015_0.0_full____2020_11_11_20_13_53_727456_umap_augmented",
+        },
+    },
 }
 
 
@@ -246,6 +271,14 @@ def load_dataset(dataset, labels_per_class):
         X_train, X_test, X_valid, Y_train, Y_test, Y_valid = load_FMNIST(flatten=False)
         num_classes = 10
         dims = (28, 28, 1)
+    elif dataset == "cassins":
+        X_train, X_test, X_valid, Y_train, Y_test, Y_valid = load_CASSINS(flatten=False)
+        num_classes = 20
+        dims = (32, 31, 1)
+    elif dataset == "macosko2015":
+        X_train, X_test, X_valid, Y_train, Y_test, Y_valid = load_MACOSKO(flatten=False)
+        num_classes = 12
+        dims = 50
 
     # get labeled data
     if labels_per_class == "full":
@@ -284,10 +317,147 @@ def load_architecture(dataset, n_latent_dims, extend_embedder=True):
         return load_mnist_CNN(n_latent_dims, extend_embedder)
     elif dataset == "fmnist":
         return load_mnist_CNN(n_latent_dims, extend_embedder)
+    elif dataset == "cassins":
+        return load_cassins_RNN(n_latent_dims, extend_embedder)
+    elif dataset == "macosko2015":
+        return load_macosko_NET(n_latent_dims, extend_embedder)
 
 
 from tensorflow.keras import datasets, layers, models
 from tensorflow_addons.layers import WeightNormalization
+from tensorflow.keras.layers import (
+    Conv2D,
+    Reshape,
+    Bidirectional,
+    Dense,
+    RepeatVector,
+    TimeDistributed,
+    LSTM,
+)
+
+
+def load_macosko_NET(
+    n_latent_dims,
+    extend_embedder=True,
+    dims=(50),
+    num_classes=12,
+    lr_alpha=0.1,
+    dropout_rate=0.5,
+):
+    """
+
+    """
+
+    encoder = models.Sequential()
+    encoder.add(tf.keras.Input(shape=dims))
+    encoder.add(layers.Dense(256, activation=None))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha))
+    encoder.add(layers.Dense(256, activation=None))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha))
+    encoder.add(layers.Dense(256, activation=None))
+    encoder.add(layers.LeakyReLU(alpha=lr_alpha))
+    encoder.add(layers.Dense(256, activation=None, name="z"))
+
+    classifier = models.Sequential()
+    classifier.add(tf.keras.Input(shape=(256)))
+    classifier.add(WeightNormalization(layers.Dense(256, activation=None)))
+    classifier.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc1"))
+    classifier.add(WeightNormalization(layers.Dense(256, activation=None)))
+    classifier.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc2"))
+    classifier.add(
+        WeightNormalization(layers.Dense(num_classes, activation=None), name="y_")
+    )
+
+    embedder = models.Sequential()
+    embedder.add(tf.keras.Input(shape=(256)))
+    if extend_embedder:
+        embedder.add(WeightNormalization(layers.Dense(256, activation=None)))
+        embedder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc1"))
+        embedder.add(WeightNormalization(layers.Dense(256, activation=None)))
+        embedder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc2"))
+    embedder.add(
+        WeightNormalization(layers.Dense(n_latent_dims, activation=None), name="z_")
+    )
+
+    return encoder, classifier, embedder
+
+
+def load_cassins_RNN(
+    n_latent_dims,
+    extend_embedder=True,
+    dims=(32, 31, 1),
+    num_classes=20,
+    lr_alpha=0.1,
+    dropout_rate=0.5,
+):
+    """
+
+    """
+
+    encoder = models.Sequential()
+    encoder.add(tf.keras.Input(shape=dims))
+    encoder.add(
+        Conv2D(
+            filters=32,
+            kernel_size=3,
+            strides=(2, 2),
+            activation=tf.nn.leaky_relu,
+            padding="same",
+        )
+    )
+    encoder.add(
+        Conv2D(
+            filters=64,
+            kernel_size=3,
+            strides=(2, 2),
+            activation=tf.nn.leaky_relu,
+            padding="same",
+        )
+    )
+    encoder.add(
+        Conv2D(
+            filters=128,
+            kernel_size=3,
+            strides=(2, 1),
+            activation=tf.nn.leaky_relu,
+            padding="same",
+        )
+    )
+    encoder.add(
+        Conv2D(
+            filters=128,
+            kernel_size=3,
+            strides=(2, 1),
+            activation=tf.nn.leaky_relu,
+            padding="same",
+        )
+    )
+    encoder.add(Reshape(target_shape=(8, 2 * 128)))
+    encoder.add(Bidirectional(LSTM(units=100, activation="relu")))
+    encoder.add(layers.Dense(256, activation=None, name="z"))
+
+    classifier = models.Sequential()
+    classifier.add(tf.keras.Input(shape=(256)))
+    classifier.add(WeightNormalization(layers.Dense(256, activation=None)))
+    classifier.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc1"))
+    classifier.add(WeightNormalization(layers.Dense(256, activation=None)))
+    classifier.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc2"))
+    classifier.add(
+        WeightNormalization(layers.Dense(num_classes, activation=None), name="y_")
+    )
+
+    embedder = models.Sequential()
+    embedder.add(tf.keras.Input(shape=(256)))
+    if extend_embedder:
+        embedder.add(WeightNormalization(layers.Dense(256, activation=None)))
+        embedder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc1"))
+        embedder.add(WeightNormalization(layers.Dense(256, activation=None)))
+        embedder.add(layers.LeakyReLU(alpha=lr_alpha, name="lrelufc2"))
+    embedder.add(
+        WeightNormalization(layers.Dense(n_latent_dims, activation=None), name="z_")
+    )
+
+    return encoder, classifier, embedder
 
 
 def load_mnist_CNN(

@@ -71,7 +71,7 @@ def load_CIFAR10(flatten=True):
     return X_train, X_test, X_valid, Y_train, Y_test, Y_valid
 
 
-def load_MACOSKO():
+def load_MACOSKO(flatten=True):
     """
     #dataset_address = 'http://file.biolab.si/opentsne/macosko_2015.pkl.gz'
     # https://opentsne.readthedocs.io/en/latest/examples/01_simple_usage/01_simple_usage.html
@@ -110,7 +110,7 @@ def load_MACOSKO():
     return X_train, X_test, X_valid, Y_train, Y_test, Y_valid
 
 
-def load_CASSINS():
+def load_CASSINS(flatten=False):
 
     syllable_df = pd.read_pickle(DATA_DIR / "cassins" / "cassins.pickle")
 
@@ -150,6 +150,11 @@ def load_CASSINS():
     Y_train = enc.fit_transform([[i] for i in Y_train]).flatten()
     Y_valid = enc.fit_transform([[i] for i in Y_valid]).flatten()
     Y_test = enc.fit_transform([[i] for i in Y_test]).flatten()
+
+    if flatten:
+        X_train = X_train.reshape((len(X_train), np.product(np.shape(X_train)[1:])))
+        X_test = X_test.reshape((len(X_test), np.product(np.shape(X_test)[1:])))
+        X_valid = X_valid.reshape((len(X_valid), np.product(np.shape(X_valid)[1:])))
 
     return X_train, X_test, X_valid, Y_train, Y_test, Y_valid
 
